@@ -1,0 +1,439 @@
+---
+title: "Early Childhood"
+author: "Greater Louisville Project"
+date: '2021'
+output:
+  html_document:
+    self_contained: no
+    toc: yes
+    toc_float: yes
+    code_folding: hide
+knit: (function(inputFile, encoding) { rmarkdown::render(inputFile, encoding = encoding, output_file = file.path(dirname(inputFile), 'index.html')) })
+---
+
+```{r setup, include=FALSE}
+
+# Knitr options
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, dev.args=list(bg="transparent"))
+
+# Set up fonts
+library(showtext)
+showtext_auto()
+
+font_add("Montserrat", "Montserrat/Montserrat-Regular.ttf")
+font_add("Montserrat Bold", "Montserrat/Montserrat-SemiBold.ttf")
+
+# Load packages
+library(readr)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(magrittr)
+library(purrr)
+library(scales)
+library(ggrepel)
+library(leaflet)
+library(sf)
+
+# Import data and functions from glp packages
+if (FALSE) {
+  library(glptools)
+  save(map_zip, file = "raw_data/map_zip.RData") 
+}
+
+# Map function
+make_map <- function(indicator, title = "", legend = "", caption = "", no_legend = FALSE, vir_dir = 1){
+  plt <- ggplot(jfco_sf) + 
+  geom_sf(aes(fill={{ indicator }} )) +
+  # scale_fill_gradient(low = "#323844", high = "#d63631", name = "Percent") +
+  scale_fill_viridis(na.value = "grey", name = legend, direction = vir_dir) +
+  theme_bw(base_size = 22) +
+  theme(plot.caption = element_text(lineheight = .5)) +
+  theme(text = element_text(family = "Montserrat"),
+        panel.grid = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        axis.title = element_blank(),
+        panel.border = element_blank()) +
+  labs(title = title,
+       caption = caption)
+  
+  if (no_legend == TRUE){
+    plt <- plt + theme(legend.position = "none")
+  }
+  
+  plt <- plt +
+    theme(
+      panel.background = element_rect(fill = "transparent", color = NA), # bg of the panel
+      plot.background = element_rect(fill = "transparent", color = NA), # bg of the plot
+      legend.background = element_rect(fill = "transparent", color = "transparent"), # get rid of legend bg
+      legend.box.background = element_rect(fill = "transparent", color = "transparent"), # get rid of legend panel bg
+      legend.key = element_rect(fill = "transparent",colour = NA))
+  
+  return(plt)
+}
+
+# Ranking function
+ranking <- function(df, var, plot_title = "",
+                    year = NULL, sex = "total", race = "total",
+                    order = "Descending",
+                    y_title = "Percent", caption_text = "", subtitle_text = "",
+                    bar_label = TRUE, sigfig = 3, accuracy = 0.1,
+                    label_function, alternate_text = NULL,
+                    ranking_colors = TRUE, text_size){
+  # Copy variable var to a new column for use with the '$' operator
+  var <- dplyr:::tbl_at_vars(df, vars(!!enquo(var)))
+  df$var <- df[[var]]
+  # Filter to sex, race, and year
+  if ("sex" %in% names(df)) df <- df[df$sex == sex,]
+  if ("race" %in% names(df)) df <- df[df$race == race,]
+  if("year" %in% names(df)) {
+    if (is.null(year)) year <- max(years_in_df(df, var))
+    df <- df[df$year %in% year,]
+    if (length(year) > 1) {
+      df %<>%
+        group_by_at(df %cols_in% c("MSA", "FIPS")) %>%
+        summarise(var = mean(var, na.rm = TRUE)) %>%
+        ungroup()
+    }
+  }
+  # Add peer data if not already present
+  # if (df_type(df) %in% c("FIPS", "MSA") & "current" %not_in% names(df)) df %<>% pull_peers(add_info = T)
+  
+  # Sort according to order parameter
+  if (order %in% c("descending", "Descending")) df %<>% arrange(desc(var))
+  if (order %in% c("ascending", "Ascending"))   df %<>% arrange(var)
+  df %<>% filter(!is.na(var))
+  # Create numbered city labels for left side of graph
+  df %<>%
+    mutate(
+      rank = row_number(),
+      names = paste0(rank, ". ", city))
+  # Set bar colors
+  if (ranking_colors) {
+    # color_values <- c("#96ca4f", "#ffd600", "#db2834")
+    # color_names <- c("green", "yellow", "red")
+    # if (order %in% c("descending", "Descending")) {color_names  = rev(color_names)}
+    # 
+    # breaks <- classInt::classIntervals(na.omit(df$var), 3, style = "jenks")
+    # df$color <- NA
+    # df$color[df$var <= breaks$brks[2]] <- color_names[1]
+    # df$color[df$var > breaks$brks[2] & df$var <= breaks$brks[3]] <- color_names[2]
+    # df$color[df$var > breaks$brks[3]] <- color_names[3]
+    
+    color_values <- c("#d63631", "#323844")
+    color_names <- c("gray", "red")
+    
+    df$color <- "red"
+    df$color[df$city == "Louisville"] <- "gray"
+  } else {
+    df$color <- "blue"
+    color_values <- "#f58021"
+    color_names <- "blue"
+  }
+  if (order %in% c("descending", "Descending")) color_values = rev(color_values)
+  # Create numeric labels
+  # Create numeric labels
+  if (!missing(label_function)) {
+    label_text <- df$var %>% signif(sigfig) %>% label_function()
+  } else if (y_title == "Dollars") {
+    if(mean(df$var, na.rm = TRUE) > 10000) {
+      label_text <- df$var %>% signif(sigfig) %>% scales::dollar(accuracy = accuracy, scale = .001, suffix = "k")
+    } else {
+      label_text <- df$var %>% signif(sigfig) %>% scales::dollar(accuracy = .01)
+    }
+  } else if (stringr::str_detect(y_title, "Percent")) {
+    label_text <- df$var %>% signif(sigfig) %>% scales::percent(accuracy = accuracy, scale = 1, suffix = "%")
+  } else {
+    label_text <- df$var %>% signif(sigfig) %>% scales::comma(accuracy = accuracy)
+  }
+
+  # Set text format, highlight and italicise Louisville text, highlight Louisville bar
+  df$textcolor <- "#000000"
+  df$textcolor[df$city == "Louisville"] <- "#000000"
+  
+  df$textfont <- "Montserrat"
+  df$textfont[df$city == "Louisville"] <- "Montserrat Bold"
+  
+  label_color_names <- c("white", "black")
+  label_color_values <- c("#000000", "#ffffff")
+  
+  df$label_color <- "white"
+  df$label_color[df$city == "Louisville"] <- "black"
+  #df$linecolor <- "#ffffff"
+  #df$linecolor[df$city == "Louisville"] <- "#00a9b7"
+  df$lou <- if_else(df$city == "Louisville", 1, 0)
+  df$text_alignment <- 1.1
+  if (!is.null(alternate_text)) df$text_alignment[df$rank %in% alternate_text] <- -0.1
+  ### PLOT GRAPH
+  
+  # Initial plot
+  p <- ggplot(data = df,
+              aes(x = factor(names, levels = rev(names)),
+                  y = var,
+                  fill  = factor(color, levels = color_names, ordered = TRUE)))
+  p <- p + guides(fill = FALSE, color = FALSE)
+  # Add bars
+  p <- p +
+    geom_bar(stat = "identity",
+             size = text_size) +
+    coord_flip() +
+    ggthemes::theme_tufte()
+  p <- p + scale_fill_manual(values = color_values)
+  #p <- p + scale_color_manual(values = c("#ffffff", "#00a9b7"))
+  # Add features
+  title_scale <- min(1, 48 / nchar(plot_title))
+  p <- p + theme(text = element_text(family = "Montserrat"),
+                 plot.title = element_text(size = 14 * title_scale * text_size, hjust = 0.5, margin = margin(b = 10, unit = "pt")),
+                 axis.text.y = element_text(hjust = 0,
+                                            size = 10 * text_size, 
+                                            color = rev(df$textcolor),
+                                            family = rev(df$textfont)),
+                 axis.title.x = element_text(size = 10 * text_size),
+                 axis.ticks = element_blank(),
+                 axis.text.x = element_blank(),
+                 plot.caption = element_text(size = 5 * text_size, lineheight = 0.5))
+  if(subtitle_text != ""){
+    p <- p + theme(plot.subtitle = element_text(hjust = 0.5, size = 5 * text_size)) +
+      labs(subtitle = subtitle_text)
+  }
+  # Add numeric labels to bars based on bar_label parameter
+  if (y_title != "" & bar_label) {
+    p <- p + geom_text(aes(label = label_text, 
+                           hjust = text_alignment, 
+                           color = factor(label_color),
+                           family = textfont),
+                       size = 4.5 * text_size) +
+       scale_colour_manual(values=c("#000000", "#ffffff"))
+    }
+  # Add vertical line to the left side of the bars based on the h_line parameter
+  if (min(df$var, na.rm = TRUE) < 0) p <- p + geom_hline(yintercept = 0, linetype = "longdash", size = 2)
+  # Add remaining text
+  p <- p + labs(title = plot_title, y = y_title,
+                x = "", caption = caption_text)
+  
+  p <- p +
+    theme(
+      panel.background = element_rect(fill = "transparent", color = NA), # bg of the panel
+      plot.background = element_rect(fill = "transparent", color = NA), # bg of the plot
+      legend.background = element_rect(fill = "transparent", color = "transparent"), # get rid of legend bg
+      legend.box.background = element_rect(fill = "transparent", color = "transparent"), # get rid of legend panel bg
+      legend.key = element_rect(fill = "transparent",colour = NA))
+  
+  p
+}
+
+plt_by <- function(df, group_var, var, title_text = "Home Mortgages", 
+                   y_axis = "Percent", y_min = NA, units = "number") {
+  
+  var <- enquo(var)
+  group_var <- enquo(group_var)
+
+  text_scale <- 1
+  
+  plt <- ggplot(data = df, aes(x = year, y = !!var, group = !!group_var, colour = !!group_var)) +
+    geom_point(size = 2) +
+    geom_line(size = .65) +
+    theme_bw() +
+    labs(title = title_text, x = "Year", y = y_axis) +
+    theme(legend.position = "bottom")
+  
+  color_pal <- c("#323844", "#d63631", "#eaab21", "#a7bfd7")[1:length(unique(pull(df, !!group_var)))]
+  
+  plt <- plt  + 
+    scale_colour_manual(values = color_pal) +
+    #scale_x_continuous(breaks = seq(from = 2007, to = 2019, by = 2)) +
+    theme(text = element_text(family = "Montserrat"),
+          
+          legend.title     = element_text(size = 30 * text_scale),
+          legend.text      = element_text(size = 24 * text_scale,
+                                          margin = margin(b = 0.2 * text_scale, t = 0.2 * text_scale, unit = "cm")),
+
+          axis.text    = element_text(size = 24 * text_scale),
+          axis.title   = element_text(size = 30 * text_scale),
+          axis.title.x = element_text(margin = margin(t = 0.3 * text_scale, unit = "cm")),
+          axis.title.y = element_text(margin = margin(r = 0.3 * text_scale, unit = "cm")),
+      
+          plot.title = element_text(size = 42 * text_scale,
+                                    hjust = .5,
+                                    margin = margin(b = 0.4 * text_scale, unit = "cm")))
+  
+  if (!is.na(y_min)) {
+    plt <- plt + ylim(y_min, NA)
+  }
+  
+  if(units == "Dollars") plt <- plt + scale_y_continuous(labels = scales::dollar)
+  if(units == "Percent") plt <- plt + scale_y_continuous(labels = function(x) scales::percent(x, accuracy = 1, scale = 1))
+
+  plt <- plt +
+    theme(
+      panel.background = element_rect(fill = "transparent", color = NA), # bg of the panel
+      plot.background = element_rect(fill = "transparent", color = NA), # bg of the plot
+      legend.background = element_rect(fill = "transparent", color = "transparent"), # get rid of legend bg
+      legend.box.background = element_rect(fill = "transparent", color = "transparent"), # get rid of legend panel bg
+      legend.key = element_rect(fill = "transparent",colour = NA)
+  )
+  
+  plt
+}
+
+```
+
+# Early Care and Pre-K
+
+## Cost and Availability of Childcare
+
+## Childcare Workers compensation / education
+
+## Head Start
+
+# Child Health
+
+## Adverse Childhood Experiences
+
+# Child Food Security
+```{r food_security }
+
+```
+
+# Kindergarten Readiness 
+
+## by Student Zip Code
+```{r kindergarten_readiness_data}
+
+# Load zip code map
+load("raw_data/map_zip.RData")
+
+# Ready in kready data
+kready_zip <- readxl::read_excel("raw_data/Copy of 1920_Brigance Zip Code_Prior Settings TablesForORR.xlsx",
+                                 sheet = "ZipCode3Years", 
+                                 range ="B4:K38",
+                                 col_names = c("zip", paste0(c("num_", "ready_", "notready_"),
+                                                             rep(2018:2020, each = 3))),
+                                 col_types = c("text", rep("numeric", 9)),
+                                 na = "*")
+
+# Clean and organize data frame
+kready_zip %<>% 
+  pivot_longer(num_2018:notready_2020, names_to = c("var_type", "year"), names_sep = "_") %>%
+  filter(var_type != "notready") %>%
+  mutate(
+    var_type = case_when(var_type == "num" ~ "population",
+                         var_type == "ready" ~ "percent")) %>%
+  transmute(
+    zip, year, var_type, 
+    kready = if_else(var_type == "percent", value * 100, value))
+
+# Summarize data frame over three years due to unstable data
+kready_zip_sum <- kready_zip %>%
+  pivot_wider(names_from = var_type, values_from = kready) %>%
+  group_by(zip) %>%
+  filter(all(!is.na(percent))) %>%
+  summarise(
+    percent = weighted.mean(percent, population),
+    population = sum(population),
+    .groups = "drop") %>%
+  rename(kready = percent)
+
+# Join data to map
+map_zip %<>% left_join(kready_zip_sum, by = "zip")
+  
+ggplot(map_zip) + 
+  geom_sf(aes(fill = kready)) +
+  #scale_fill_manual(values = viridis::viridis(6, direction = -1), na.value = "grey") +
+  viridis::scale_fill_viridis(na.value = "grey", 
+                            name = "Percent Ready") +
+  theme_bw(base_size = 22, base_family = "Montserrat") +
+  theme(panel.grid = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        axis.title = element_blank(),
+        panel.border = element_blank()) +
+  labs(title = "JCPS Kindergarden Readiness by Student's Home Zip Code",
+       subtitle = "Average for the school years 2017-2018, 2018-2019, and 2019-2020") +
+  theme(
+    panel.background = element_rect(fill = "transparent", color = NA), # bg of the panel
+    plot.background = element_rect(fill = "transparent", color = NA), # bg of the plot
+    legend.background = element_rect(fill = "transparent", color = "transparent"), # get rid of legend bg
+    legend.box.background = element_rect(fill = "transparent", color = "transparent"), # get rid of legend panel bg
+    legend.key = element_rect(fill = "transparent",colour = NA))
+
+```
+
+## by School Location
+```{r clean_data}
+load("raw_data/kready_jc.RData")
+load("raw_data/map_elementary.RData")
+
+# Filter out 
+kready_jc_subset <- kready_jc %>%
+  filter(code != "275", 
+         year == 2020, 
+         demographic == "All Students",
+         prior_setting == "All Students") %>%
+  mutate(code = str_sub(code, 4, 6) %>%
+                as.numeric)
+
+map_elementary %<>%
+  rename(
+    SCHOOL_NAME = SCHOOL_NAM,
+    LOCATION = LocNumber,
+    CLUSTER = ClusterNum)
+
+map_elementary %<>%
+  left_join(kready_jc_subset, by = c("LOCATION" = "code"))
+
+ggplot(map_elementary) + 
+  geom_sf(aes(fill = kready)) +
+  #scale_fill_manual(values = viridis::viridis(6, direction = -1), na.value = "grey") +
+  viridis::scale_fill_viridis(na.value = "grey", 
+                            name = "Percent Ready") +
+  theme_bw(base_size = 22, base_family = "Montserrat") +
+  theme(panel.grid = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        axis.title = element_blank(),
+        panel.border = element_blank()) +
+  labs(title = "JCPS Kindergarden Readiness by School Location", 2020) +
+  theme(
+    panel.background = element_rect(fill = "transparent", color = NA), # bg of the panel
+    plot.background = element_rect(fill = "transparent", color = NA), # bg of the plot
+    legend.background = element_rect(fill = "transparent", color = "transparent"), # get rid of legend bg
+    legend.box.background = element_rect(fill = "transparent", color = "transparent"), # get rid of legend panel bg
+    legend.key = element_rect(fill = "transparent",colour = NA))
+```
+
+## by Prior Setting
+```{r kreaady_prior_setting}
+load("raw_data/kready_ky.RData")
+
+kready_louisville <- kready_ky %>%
+  filter(variable == "lou",
+         sex == "total",
+         race == "total",
+         frl_status == "total",
+         prior_setting %in% c("State Funded", "Head Start", "Child Care", "Home"))
+
+plt_by(kready_louisville,
+       prior_setting,
+       kready,
+       title_text = "Kindergarten Readiness by Prior Setting")
+
+```
+
+## by Race
+```{r kreaady_race}
+kready_race <- kready_ky %>%
+  filter(variable == "lou",
+         sex == "total",
+         race %in% c("black", "white"),
+         frl_status == "total",
+         prior_setting == "All Students")
+
+plt_by(kready_race,
+       race,
+       kready,
+       title_text = "Kindergarten Readiness by Race")
+
+```
+
