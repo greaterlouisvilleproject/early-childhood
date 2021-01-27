@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+
+<meta name="author" content="Greater Louisville Project" />
+
+<meta name="date" content="2021-01-01" />
+
+<title>Early Childhood</title>
+
+<script src="index_files/header-attrs-2.6/header-attrs.js"></script>
+<script src="index_files/jquery-1.11.3/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="index_files/bootstrap-3.3.5/css/bootstrap.min.css" rel="stylesheet" />
+<script src="index_files/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="index_files/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="index_files/bootstrap-3.3.5/shim/respond.min.js"></script>
+<script src="index_files/jqueryui-1.11.4/jquery-ui.min.js"></script>
+<link href="index_files/tocify-1.9.1/jquery.tocify.css" rel="stylesheet" />
+<script src="index_files/tocify-1.9.1/jquery.tocify.js"></script>
+<script src="index_files/navigation-1.1/tabsets.js"></script>
+<script src="index_files/navigation-1.1/codefolding.js"></script>
+<link href="index_files/highlightjs-9.12.0/default.css" rel="stylesheet" />
+<script src="index_files/highlightjs-9.12.0/highlight.js"></script>
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+    </style>
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+<style type="text/css">
+h1 {
+  font-size: 34px;
+}
+h1.title {
+  font-size: 38px;
+}
+h2 {
+  font-size: 30px;
+}
+h3 {
+  font-size: 24px;
+}
+h4 {
+  font-size: 18px;
+}
+h5 {
+  font-size: 16px;
+}
+h6 {
+  font-size: 12px;
+}
+.table th:not([align]) {
+  text-align: left;
+}
+</style>
+
+
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img {
+  max-width:100%;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+</style>
+
+
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "&#xe258;";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+  background-color: transparent;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<!-- code folding -->
+<style type="text/css">
+.code-folding-btn { margin-bottom: 4px; }
+</style>
+
+
+
+<style type="text/css">
+
+#TOC {
+  margin: 25px 0px 20px 0px;
+}
+@media (max-width: 768px) {
+#TOC {
+  position: relative;
+  width: 100%;
+}
+}
+
+@media print {
+.toc-content {
+  /* see https://github.com/w3c/csswg-drafts/issues/4434 */
+  float: right;
+}
+}
+
+.toc-content {
+  padding-left: 30px;
+  padding-right: 40px;
+}
+
+div.main-container {
+  max-width: 1200px;
+}
+
+div.tocify {
+  width: 20%;
+  max-width: 260px;
+  max-height: 85%;
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+  div.tocify {
+    width: 25%;
+  }
+}
+
+@media (max-width: 767px) {
+  div.tocify {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+.tocify ul, .tocify li {
+  line-height: 20px;
+}
+
+.tocify-subheader .tocify-item {
+  font-size: 0.90em;
+}
+
+.tocify .list-group-item {
+  border-radius: 0px;
+}
+
+
+</style>
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+<!-- setup 3col/9col grid for toc_float and main content  -->
+<div class="row-fluid">
+<div class="col-xs-12 col-sm-4 col-md-3">
+<div id="TOC" class="tocify">
+</div>
+</div>
+
+<div class="toc-content col-xs-12 col-sm-8 col-md-9">
+
+
+
+
+<div class="fluid-row" id="header">
+
+<div class="btn-group pull-right">
+<button type="button" class="btn btn-default btn-xs dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span>Code</span> <span class="caret"></span></button>
+<ul class="dropdown-menu" style="min-width: 50px;">
+<li><a id="rmd-show-all-code" href="#">Show All Code</a></li>
+<li><a id="rmd-hide-all-code" href="#">Hide All Code</a></li>
+</ul>
+</div>
+
+
+
+<h1 class="title toc-ignore">Early Childhood</h1>
+<h4 class="author">Greater Louisville Project</h4>
+<h4 class="date">2021</h4>
+
+</div>
+
+
+<div id="early-care-and-pre-k" class="section level1">
+<h1>Early Care and Pre-K</h1>
+<div id="cost-and-availability-of-childcare" class="section level2">
+<h2>Cost and Availability of Childcare</h2>
+</div>
+<div id="childcare-workers-compensation-education" class="section level2">
+<h2>Childcare Workers compensation / education</h2>
+</div>
+<div id="head-start" class="section level2">
+<h2>Head Start</h2>
+</div>
+</div>
+<div id="child-health" class="section level1">
+<h1>Child Health</h1>
+<div id="adverse-childhood-experiences" class="section level2">
+<h2>Adverse Childhood Experiences</h2>
+</div>
+</div>
+<div id="child-food-security" class="section level1">
+<h1>Child Food Security</h1>
+</div>
+<div id="kindergarten-readiness" class="section level1">
+<h1>Kindergarten Readiness</h1>
+<div id="by-student-zip-code" class="section level2">
+<h2>by Student Zip Code</h2>
+<pre class="r"><code># Load zip code map
+load(&quot;raw_data/map_zip.RData&quot;)
+
+# Ready in kready data
+kready_zip &lt;- readxl::read_excel(&quot;raw_data/Copy of 1920_Brigance Zip Code_Prior Settings TablesForORR.xlsx&quot;,
+                                 sheet = &quot;ZipCode3Years&quot;, 
+                                 range =&quot;B4:K38&quot;,
+                                 col_names = c(&quot;zip&quot;, paste0(c(&quot;num_&quot;, &quot;ready_&quot;, &quot;notready_&quot;),
+                                                             rep(2018:2020, each = 3))),
+                                 col_types = c(&quot;text&quot;, rep(&quot;numeric&quot;, 9)),
+                                 na = &quot;*&quot;)
+
+# Clean and organize data frame
+kready_zip %&lt;&gt;% 
+  pivot_longer(num_2018:notready_2020, names_to = c(&quot;var_type&quot;, &quot;year&quot;), names_sep = &quot;_&quot;) %&gt;%
+  filter(var_type != &quot;notready&quot;) %&gt;%
+  mutate(
+    var_type = case_when(var_type == &quot;num&quot; ~ &quot;population&quot;,
+                         var_type == &quot;ready&quot; ~ &quot;percent&quot;)) %&gt;%
+  transmute(
+    zip, year, var_type, 
+    kready = if_else(var_type == &quot;percent&quot;, value * 100, value))
+
+# Summarize data frame over three years due to unstable data
+kready_zip_sum &lt;- kready_zip %&gt;%
+  pivot_wider(names_from = var_type, values_from = kready) %&gt;%
+  group_by(zip) %&gt;%
+  filter(all(!is.na(percent))) %&gt;%
+  summarise(
+    percent = weighted.mean(percent, population),
+    population = sum(population),
+    .groups = &quot;drop&quot;) %&gt;%
+  rename(kready = percent)
+
+# Join data to map
+map_zip %&lt;&gt;% left_join(kready_zip_sum, by = &quot;zip&quot;)
+  
+ggplot(map_zip) + 
+  geom_sf(aes(fill = kready)) +
+  #scale_fill_manual(values = viridis::viridis(6, direction = -1), na.value = &quot;grey&quot;) +
+  viridis::scale_fill_viridis(na.value = &quot;grey&quot;, 
+                            name = &quot;Percent Ready&quot;) +
+  theme_bw(base_size = 22, base_family = &quot;Montserrat&quot;) +
+  theme(panel.grid = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        axis.title = element_blank(),
+        panel.border = element_blank()) +
+  labs(title = &quot;JCPS Kindergarden Readiness by Student&#39;s Home Zip Code&quot;,
+       subtitle = &quot;Average for the school years 2017-2018, 2018-2019, and 2019-2020&quot;) +
+  theme(
+    panel.background = element_rect(fill = &quot;transparent&quot;, color = NA), # bg of the panel
+    plot.background = element_rect(fill = &quot;transparent&quot;, color = NA), # bg of the plot
+    legend.background = element_rect(fill = &quot;transparent&quot;, color = &quot;transparent&quot;), # get rid of legend bg
+    legend.box.background = element_rect(fill = &quot;transparent&quot;, color = &quot;transparent&quot;), # get rid of legend panel bg
+    legend.key = element_rect(fill = &quot;transparent&quot;,colour = NA))</code></pre>
+<p><img src="index_files/figure-html/kindergarten_readiness_data-1.png" width="672" /></p>
+</div>
+<div id="by-school-location" class="section level2">
+<h2>by School Location</h2>
+<pre class="r"><code>load(&quot;raw_data/kready_jc.RData&quot;)
+load(&quot;raw_data/map_elementary.RData&quot;)
+
+# Filter out 
+kready_jc_subset &lt;- kready_jc %&gt;%
+  filter(code != &quot;275&quot;, 
+         year == 2020, 
+         demographic == &quot;All Students&quot;,
+         prior_setting == &quot;All Students&quot;) %&gt;%
+  mutate(code = str_sub(code, 4, 6) %&gt;%
+                as.numeric)
+
+map_elementary %&lt;&gt;%
+  rename(
+    SCHOOL_NAME = SCHOOL_NAM,
+    LOCATION = LocNumber,
+    CLUSTER = ClusterNum)
+
+map_elementary %&lt;&gt;%
+  left_join(kready_jc_subset, by = c(&quot;LOCATION&quot; = &quot;code&quot;))
+
+ggplot(map_elementary) + 
+  geom_sf(aes(fill = kready)) +
+  #scale_fill_manual(values = viridis::viridis(6, direction = -1), na.value = &quot;grey&quot;) +
+  viridis::scale_fill_viridis(na.value = &quot;grey&quot;, 
+                            name = &quot;Percent Ready&quot;) +
+  theme_bw(base_size = 22, base_family = &quot;Montserrat&quot;) +
+  theme(panel.grid = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        axis.title = element_blank(),
+        panel.border = element_blank()) +
+  labs(title = &quot;JCPS Kindergarden Readiness by School Location&quot;, 2020) +
+  theme(
+    panel.background = element_rect(fill = &quot;transparent&quot;, color = NA), # bg of the panel
+    plot.background = element_rect(fill = &quot;transparent&quot;, color = NA), # bg of the plot
+    legend.background = element_rect(fill = &quot;transparent&quot;, color = &quot;transparent&quot;), # get rid of legend bg
+    legend.box.background = element_rect(fill = &quot;transparent&quot;, color = &quot;transparent&quot;), # get rid of legend panel bg
+    legend.key = element_rect(fill = &quot;transparent&quot;,colour = NA))</code></pre>
+<p><img src="index_files/figure-html/clean_data-1.png" width="672" /></p>
+</div>
+<div id="by-prior-setting" class="section level2">
+<h2>by Prior Setting</h2>
+<pre class="r"><code>load(&quot;raw_data/kready_ky.RData&quot;)
+
+kready_louisville &lt;- kready_ky %&gt;%
+  filter(variable == &quot;lou&quot;,
+         sex == &quot;total&quot;,
+         race == &quot;total&quot;,
+         frl_status == &quot;total&quot;,
+         prior_setting %in% c(&quot;State Funded&quot;, &quot;Head Start&quot;, &quot;Child Care&quot;, &quot;Home&quot;))
+
+plt_by(kready_louisville,
+       prior_setting,
+       kready,
+       title_text = &quot;Kindergarten Readiness by Prior Setting&quot;)</code></pre>
+<p><img src="index_files/figure-html/kreaady_prior_setting-1.png" width="672" /></p>
+</div>
+<div id="by-race" class="section level2">
+<h2>by Race</h2>
+<pre class="r"><code>kready_race &lt;- kready_ky %&gt;%
+  filter(variable == &quot;lou&quot;,
+         sex == &quot;total&quot;,
+         race %in% c(&quot;black&quot;, &quot;white&quot;),
+         frl_status == &quot;total&quot;,
+         prior_setting == &quot;All Students&quot;)
+
+plt_by(kready_race,
+       race,
+       kready,
+       title_text = &quot;Kindergarten Readiness by Race&quot;)</code></pre>
+<p><img src="index_files/figure-html/kreaady_race-1.png" width="672" /></p>
+</div>
+</div>
+
+
+
+</div>
+</div>
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.odd').parent('tbody').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- tabsets -->
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open')
+  });
+});
+</script>
+
+<!-- code folding -->
+<script>
+$(document).ready(function () {
+  window.initializeCodeFolding("hide" === "show");
+});
+</script>
+
+<script>
+$(document).ready(function ()  {
+
+    // move toc-ignore selectors from section div to header
+    $('div.section.toc-ignore')
+        .removeClass('toc-ignore')
+        .children('h1,h2,h3,h4,h5').addClass('toc-ignore');
+
+    // establish options
+    var options = {
+      selectors: "h1,h2,h3",
+      theme: "bootstrap3",
+      context: '.toc-content',
+      hashGenerator: function (text) {
+        return text.replace(/[.\\/?&!#<>]/g, '').replace(/\s/g, '_');
+      },
+      ignoreSelector: ".toc-ignore",
+      scrollTo: 0
+    };
+    options.showAndHide = true;
+    options.smoothScroll = true;
+
+    // tocify
+    var toc = $("#TOC").tocify(options).data("toc-tocify");
+});
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
