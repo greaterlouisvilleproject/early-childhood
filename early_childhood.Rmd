@@ -283,6 +283,97 @@ plt_by <- function(df, group_var, var, title_text = "Home Mortgages",
 
 ## Cost and Availability of Childcare
 
+```{r}
+
+# Read in provider information (county, name, address, etc.)
+provider_information <- readxl::read_xlsx("raw_data/Chilcare Provider Download.xlsx",
+                                          skip = 2)
+
+# Subset to Jefferson County and rename license column for ease of use
+provider_information %<>% 
+  filter(County == "JEFFERSON") %>%
+  rename(CLR = `CLR#`)
+    
+# Read in provider data collected from KYnect 
+provider_data <- read_csv("raw_data/Childcare Provider Cost Data.csv",
+                          col_names = c("CLR", "Day", "Time", "Services", "FullTime", "PartTime", "Other"))
+
+# Check that no data is missing a license number - PASSED
+# missing_CLR <- provider_data %>%
+#   filter(is.na(CLR)) %>%
+#   filter(!is.na(Day) | !is.na(Time) | !is.na(Services) |
+#            !is.na(FullTime) | !is.na(PartTime) | !is.na(Other))
+# 
+# # Check that the list of license numbers are identical - PASSED
+# check_data1 <- mean(provider_information$CLR %in% provider_data$CLR) + 
+#                mean(provider_data$CLR %in% provider_information$CLR)
+
+# Check values and number of each variable
+# table(provider_data$Day) # good, 1 provider removed from listing
+# table(provider_data$Time) # good
+# table(provider_data$Services) # good
+# table(provider_data$FullTime) # good
+# table(test$PartTime) # often contains data for "Other"
+# table(provider_data$Other) # good
+# table(str_remove(provider_data$Other, "\\d*")) # good
+
+# Filter out rows without license numbers (used to make data entry easier)
+# Remove C6739, which closed between the creation of the provider registry and data collection 
+provider_data %<>%
+  filter(!is.na(CLR), 
+         CLR != "C6739")
+
+# The data for the "Other" column is often located in the PartTime column.
+# Group by license and determine whether the number of children is in the PartTime column. (should be in Other)
+# If so, move the data from the PartTime column to the Other column for that provider.
+provider_data %<>%
+  group_by(CLR) %>%
+  mutate(move_PartTime = if_else(any(str_detect(PartTime, "Children")), T, F),
+         move_PartTime = if_else(is.na(move_PartTime), F, move_PartTime)) %>%
+  mutate(Other = if_else(move_PartTime, PartTime, Other),
+         PartTime = if_else(move_PartTime, NA_character_, PartTime)) %>%
+  ungroup() %>%
+  select(-move_PartTime)
+
+# Hours data
+# Clean by filtering data to days of the week
+provider_hours <- provider_data %>%
+  select(CLR, Day, Time) %>%
+  filter(Day %in% c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+
+# Cost data
+# Multiple offerings for each age-group are labeled with numbers (e.g. Toddler 1, Toddler 2). Remove.
+# Clean by filtering data to type of service (infant, toddler, preschool, school age)
+# Keep distinct (Removes multiple oferrings for the same age group with same prices)
+provider_cost <- provider_data %>%
+  select(CLR, Services, FullTime, PartTime) %>%
+  mutate(Services = str_remove(Services, " \\d")) %>%
+  filter(Services %in% c("Infant", "Toddler", "Preschool", "School Age")) %>%
+  distinct()
+
+# View number of different-cost options within each age group
+# provider_cost %>% group_by(CLR, Services) %>% summarise(n = n()) %>% pull(n) %>% table()
+
+# Other data
+provider_other <- provider_data %>%
+  select(CLR, Other)
+
+# Column contains data labels/headers followed by data
+# Copy the data to a new column and shift it up one row to create key-value pairs 
+provider_other$header <- provider_other$Other
+provider_other$data <- c(provider_other$Other[2:nrow(provider_other)], NA_character_)
+
+# Filter the data to rows where the header is in the header column. (Remove value-key pairs.)
+# Spread the data across columns
+provider_other %<>%
+  select(-Other) %>%
+  filter(header %in% c("Capacity", "CCCAP Subsidy", "Acceditations", "Food Permit", "Transportation")) %>%
+  pivot_wider(names_from = header, values_from = data) %>%
+  mutate(
+    Capacity = str_remove(Capacity, " Children") %>% as.numeric)
+
+```
+
 ## Childcare Workers compensation / education
 
 ## Head Start
