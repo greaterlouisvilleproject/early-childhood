@@ -283,7 +283,18 @@ plt_by <- function(df, group_var, var, title_text = "Home Mortgages",
 
 ## Cost and Availability of Childcare
 
-```{r}
+```{r childcare_provider_data}
+# Creates four data frames linked by license number (CLR)
+
+# provider_information: original file from the state.
+#    includes provider name, address, and several other fields.
+
+# provider_hours: includes open days and hours
+
+# provider_cost: includes program offerings and cost
+
+# provider_other: includes other available info. 
+#    Might just duplicate fields from program_information, though.
 
 # Read in provider information (county, name, address, etc.)
 provider_information <- readxl::read_xlsx("raw_data/Chilcare Provider Download.xlsx",
