@@ -29,6 +29,13 @@
 <script src="index_files/navigation-1.1/codefolding.js"></script>
 <link href="index_files/highlightjs-9.12.0/default.css" rel="stylesheet" />
 <script src="index_files/highlightjs-9.12.0/highlight.js"></script>
+<script src="index_files/htmlwidgets-1.5.3/htmlwidgets.js"></script>
+<script src="index_files/plotly-binding-4.9.2.2/plotly.js"></script>
+<script src="index_files/typedarray-0.1/typedarray.min.js"></script>
+<link href="index_files/crosstalk-1.1.0.1/css/crosstalk.css" rel="stylesheet" />
+<script src="index_files/crosstalk-1.1.0.1/js/crosstalk.min.js"></script>
+<link href="index_files/plotly-htmlwidgets-css-1.52.2/plotly-htmlwidgets.css" rel="stylesheet" />
+<script src="index_files/plotly-main-1.52.2/plotly-latest.min.js"></script>
 
 <style type="text/css">
   code{white-space: pre-wrap;}
@@ -288,27 +295,134 @@ div.tocify {
 <h1>Early Care and Pre-K</h1>
 <div id="cost-and-availability-of-childcare" class="section level2">
 <h2>Cost and Availability of Childcare</h2>
+<p>Data obtained from KyNECT. Pending Nate’s analysis.</p>
+<pre class="r"><code># Creates four data frames linked by license number (CLR)
+
+# provider_information: original file from the state.
+#    includes provider name, address, and several other fields.
+
+# provider_hours: includes open days and hours
+
+# provider_cost: includes program offerings and cost
+
+# provider_other: includes other available info. 
+#    Might just duplicate fields from program_information, though.
+
+# Read in provider information (county, name, address, etc.)
+provider_information &lt;- readxl::read_xlsx(&quot;raw_data/Chilcare Provider Download.xlsx&quot;,
+                                          skip = 2)
+
+# Subset to Jefferson County and rename license column for ease of use
+provider_information %&lt;&gt;% 
+  filter(County == &quot;JEFFERSON&quot;) %&gt;%
+  rename(CLR = `CLR#`)
+    
+# Read in provider data collected from KYnect 
+provider_data &lt;- read_csv(&quot;raw_data/Childcare Provider Cost Data.csv&quot;,
+                          col_names = c(&quot;CLR&quot;, &quot;Day&quot;, &quot;Time&quot;, &quot;Services&quot;, &quot;FullTime&quot;, &quot;PartTime&quot;, &quot;Other&quot;))
+
+# Check that no data is missing a license number - PASSED
+# missing_CLR &lt;- provider_data %&gt;%
+#   filter(is.na(CLR)) %&gt;%
+#   filter(!is.na(Day) | !is.na(Time) | !is.na(Services) |
+#            !is.na(FullTime) | !is.na(PartTime) | !is.na(Other))
+# 
+# # Check that the list of license numbers are identical - PASSED
+# check_data1 &lt;- mean(provider_information$CLR %in% provider_data$CLR) + 
+#                mean(provider_data$CLR %in% provider_information$CLR)
+
+# Check values and number of each variable
+# table(provider_data$Day) # good, 1 provider removed from listing
+# table(provider_data$Time) # good
+# table(provider_data$Services) # good
+# table(provider_data$FullTime) # good
+# table(test$PartTime) # often contains data for &quot;Other&quot;
+# table(provider_data$Other) # good
+# table(str_remove(provider_data$Other, &quot;\\d*&quot;)) # good
+
+# Filter out rows without license numbers (used to make data entry easier)
+# Remove C6739, which closed between the creation of the provider registry and data collection 
+provider_data %&lt;&gt;%
+  filter(!is.na(CLR), 
+         CLR != &quot;C6739&quot;)
+
+# The data for the &quot;Other&quot; column is often located in the PartTime column.
+# Group by license and determine whether the number of children is in the PartTime column. (should be in Other)
+# If so, move the data from the PartTime column to the Other column for that provider.
+provider_data %&lt;&gt;%
+  group_by(CLR) %&gt;%
+  mutate(move_PartTime = if_else(any(str_detect(PartTime, &quot;Children&quot;)), T, F),
+         move_PartTime = if_else(is.na(move_PartTime), F, move_PartTime)) %&gt;%
+  mutate(Other = if_else(move_PartTime, PartTime, Other),
+         PartTime = if_else(move_PartTime, NA_character_, PartTime)) %&gt;%
+  ungroup() %&gt;%
+  select(-move_PartTime)
+
+# Hours data
+# Clean by filtering data to days of the week
+provider_hours &lt;- provider_data %&gt;%
+  select(CLR, Day, Time) %&gt;%
+  filter(Day %in% c(&quot;Monday&quot;, &quot;Tuesday&quot;, &quot;Wednesday&quot;, &quot;Thursday&quot;, &quot;Friday&quot;, &quot;Saturday&quot;, &quot;Sunday&quot;))
+
+# Cost data
+# Multiple offerings for each age-group are labeled with numbers (e.g. Toddler 1, Toddler 2). Remove.
+# Clean by filtering data to type of service (infant, toddler, preschool, school age)
+# Keep distinct (Removes multiple oferrings for the same age group with same prices)
+provider_cost &lt;- provider_data %&gt;%
+  select(CLR, Services, FullTime, PartTime) %&gt;%
+  mutate(Services = str_remove(Services, &quot; \\d&quot;)) %&gt;%
+  filter(Services %in% c(&quot;Infant&quot;, &quot;Toddler&quot;, &quot;Preschool&quot;, &quot;School Age&quot;)) %&gt;%
+  distinct()
+
+# View number of different-cost options within each age group
+# provider_cost %&gt;% group_by(CLR, Services) %&gt;% summarise(n = n()) %&gt;% pull(n) %&gt;% table()
+
+# Other data
+provider_other &lt;- provider_data %&gt;%
+  select(CLR, Other)
+
+# Column contains data labels/headers followed by data
+# Copy the data to a new column and shift it up one row to create key-value pairs 
+provider_other$header &lt;- provider_other$Other
+provider_other$data &lt;- c(provider_other$Other[2:nrow(provider_other)], NA_character_)
+
+# Filter the data to rows where the header is in the header column. (Remove value-key pairs.)
+# Spread the data across columns
+provider_other %&lt;&gt;%
+  select(-Other) %&gt;%
+  filter(header %in% c(&quot;Capacity&quot;, &quot;CCCAP Subsidy&quot;, &quot;Acceditations&quot;, &quot;Food Permit&quot;, &quot;Transportation&quot;)) %&gt;%
+  pivot_wider(names_from = header, values_from = data) %&gt;%
+  mutate(
+    Capacity = str_remove(Capacity, &quot; Children&quot;) %&gt;% as.numeric)</code></pre>
 </div>
 <div id="childcare-workers-compensation-education" class="section level2">
 <h2>Childcare Workers compensation / education</h2>
+<p>Pending upload from Nate.</p>
 </div>
 <div id="head-start" class="section level2">
 <h2>Head Start</h2>
+<p>Have data from KYSTATS, pending analysis.</p>
 </div>
 </div>
 <div id="child-health" class="section level1">
 <h1>Child Health</h1>
 <div id="adverse-childhood-experiences" class="section level2">
 <h2>Adverse Childhood Experiences</h2>
+<p>Child data incoming from Sarojini. ETA Friday 2/12. Adult factors have been mapped to data sources.</p>
 </div>
 </div>
 <div id="child-food-security" class="section level1">
 <h1>Child Food Security</h1>
+<p>Data incoming from Feeding America</p>
 </div>
 <div id="kindergarten-readiness" class="section level1">
 <h1>Kindergarten Readiness</h1>
+<p>Kindergarten readiness is an important indicator of whether children will succeed in the classroom. While the measure has limitations, it is a strong indicator of future student performance.</p>
+<p>Based on data from KySTATS in 2015, students who entered school ready for kindergarten were more likely to</p>
 <div id="by-student-zip-code" class="section level2">
 <h2>by Student Zip Code</h2>
+<p>This data was aquired through a data request to JCPS. Note that this data only includes parents who send their children to JCPS, so it’s not a reflection of all children in a zip code.</p>
+<p>The data shows wide disparities in the kindergarten readiness results</p>
 <pre class="r"><code># Load zip code map
 load(&quot;raw_data/map_zip.RData&quot;)
 
@@ -369,6 +483,7 @@ ggplot(map_zip) +
 </div>
 <div id="by-school-location" class="section level2">
 <h2>by School Location</h2>
+<p>This map shows kindergarten readiness results by school. Schools are shown by their student assignment area.</p>
 <pre class="r"><code>load(&quot;raw_data/kready_jc.RData&quot;)
 load(&quot;raw_data/map_elementary.RData&quot;)
 
@@ -412,6 +527,9 @@ ggplot(map_elementary) +
 </div>
 <div id="by-prior-setting" class="section level2">
 <h2>by Prior Setting</h2>
+<p>The largest differences in kindergarten readiness are seen based on prior setting.</p>
+<p>Children who were in licensed childcare providers prior to entering school are most likely to be kindergarten ready, while children who stayed at home with a parent or guardian are least likely to be kindergarten ready.</p>
+<p>Children who were previously enrolled in Head Start, a State-funded preschool program, or were in another home setting, such as a private sitter or other family member, fall in the middle.</p>
 <pre class="r"><code>load(&quot;raw_data/kready_ky.RData&quot;)
 
 kready_louisville &lt;- kready_ky %&gt;%
@@ -419,12 +537,13 @@ kready_louisville &lt;- kready_ky %&gt;%
          sex == &quot;total&quot;,
          race == &quot;total&quot;,
          frl_status == &quot;total&quot;,
-         prior_setting %in% c(&quot;State Funded&quot;, &quot;Head Start&quot;, &quot;Child Care&quot;, &quot;Home&quot;))
+         prior_setting %in% c(&quot;State-Funded&quot;, &quot;Head Start&quot;, &quot;Child Care&quot;, &quot;Home&quot;, &quot;Other&quot;))
 
 plt_by(kready_louisville,
        prior_setting,
        kready,
-       title_text = &quot;Kindergarten Readiness by Prior Setting&quot;)</code></pre>
+       title_text = &quot;Kindergarten Readiness by Prior Setting&quot;,
+       remove_legend_title = T)</code></pre>
 <p><img src="index_files/figure-html/kreaady_prior_setting-1.png" width="672" /></p>
 </div>
 <div id="by-race" class="section level2">
@@ -434,13 +553,80 @@ plt_by(kready_louisville,
          sex == &quot;total&quot;,
          race %in% c(&quot;black&quot;, &quot;white&quot;),
          frl_status == &quot;total&quot;,
-         prior_setting == &quot;All Students&quot;)
+         prior_setting == &quot;All Students&quot;) %&gt;%
+  mutate(race = str_to_title(race))
 
 plt_by(kready_race,
        race,
        kready,
        title_text = &quot;Kindergarten Readiness by Race&quot;)</code></pre>
-<p><img src="index_files/figure-html/kreaady_race-1.png" width="672" /></p>
+<p><img src="index_files/figure-html/kready_race-1.png" width="672" /></p>
+</div>
+<div id="by-race-and-prior-setting" class="section level2">
+<h2>By Race and Prior setting</h2>
+<pre class="r"><code>kready_race_plotly &lt;- kready_ky %&gt;%
+  filter(variable == &quot;lou&quot;,
+         sex == &quot;total&quot;,
+         race %in% c(&quot;black&quot;, &quot;white&quot;, &quot;hispanic&quot;, &quot;asian&quot;),
+         frl_status == &quot;total&quot;,
+         prior_setting %in% c(&quot;All Students&quot;, &quot;State Funded&quot;, &quot;Head Start&quot;, &quot;Child Care&quot;, &quot;Home&quot;, &quot;Other&quot;)) %&gt;%
+  mutate(race = str_to_title(race)) %&gt;%
+  pivot_wider(names_from = race, values_from = kready)
+
+trnfm_list &lt;- 
+  list(
+      list(
+        type = &#39;filter&#39;,
+        target = ~prior_setting,
+        operation = &#39;in&#39;,
+        value = unique(kready_race_plotly$prior_setting)[1]
+      ))
+
+plot_ly(kready_race_plotly) %&gt;%
+  # add_trace(x = ~year, y = ~Black_ChildCare, name = &quot;Black&quot;, type = &quot;scatter&quot;, mode = &quot;lines&quot;,
+  #           line = list(color = &#39;#d63631&#39;, width = 4), visible=&quot;legendonly&quot;) %&gt;%
+  # add_trace(x = ~year, y = ~White_ChildCare, name = &quot;White&quot;, type = &quot;scatter&quot;, mode = &quot;lines&quot;,
+  #           line = list(color = &#39;#323844&#39;, width = 4), visible=&quot;legendonly&quot;) %&gt;%
+  add_trace(x = ~year, y = ~Black, name = &quot;Black&quot;, type = &quot;scatter&quot;, mode = &quot;lines&quot;, 
+            line = list(color = &#39;#d63631&#39;, width = 4), transforms = trnfm_list) %&gt;%
+  add_trace(x = ~year, y = ~White, name = &quot;White&quot;, type = &quot;scatter&quot;, mode = &quot;lines&quot;, 
+            line = list(color = &#39;#323844&#39;, width = 4), transforms = trnfm_list) %&gt;%
+  add_trace(x = ~year, y = ~Hispanic, name = &quot;Hispanic&quot;, type = &quot;scatter&quot;, mode = &quot;lines&quot;, 
+            line = list(color = &#39;#eaab21&#39;, width = 4), transforms = trnfm_list) %&gt;%
+  add_trace(x = ~year, y = ~Asian, name = &quot;Asian&quot;, type = &quot;scatter&quot;, mode = &quot;lines&quot;, 
+            line = list(color = &#39;#a7bfd7&#39;, width = 4), transforms = trnfm_list) %&gt;%
+  # add_trace(x = ~year, y = ~Black_Home, name = &quot;Black_Home&quot;, type = &quot;scatter&quot;, mode = &quot;lines&quot;, 
+  #           line = list(color = &#39;#d63631&#39;, width = 4), showlegend=FALSE) %&gt;%
+  # add_trace(x = ~year, y = ~White_Home, name = &quot;White_Home&quot;, type = &quot;scatter&quot;, mode = &quot;lines&quot;, 
+  #           line = list(color = &#39;#323844&#39;, width = 4), showlegend=FALSE) %&gt;%
+  layout(title = &quot;Kindergerten Readiness by Race&quot;,
+         xaxis = list(title = &quot;Year&quot;),
+         yaxis = list(title = &quot;Percent Ready&quot;, range = c(0, 100)),
+         updatemenus = list(
+          list(
+            x = 1.25,
+            y = 0.75,
+            buttons = list(
+              list(method = &quot;restyle&quot;,
+                   args = list(&quot;transforms[0].value&quot;, unique(kready_race_plotly$prior_setting)[1]),
+                   label = unique(kready_race_plotly$prior_setting)[1]),
+              list(method = &quot;restyle&quot;,
+                  args = list(&quot;transforms[0].value&quot;, unique(kready_race_plotly$prior_setting)[2]),
+                  label = unique(kready_race_plotly$prior_setting)[2]),
+              list(method = &quot;restyle&quot;,
+                  args = list(&quot;transforms[0].value&quot;, unique(kready_race_plotly$prior_setting)[3]),
+                  label = unique(kready_race_plotly$prior_setting)[3]),
+              list(method = &quot;restyle&quot;,
+                  args = list(&quot;transforms[0].value&quot;, unique(kready_race_plotly$prior_setting)[4]),
+                  label = unique(kready_race_plotly$prior_setting)[4]),
+              list(method = &quot;restyle&quot;,
+                  args = list(&quot;transforms[0].value&quot;, unique(kready_race_plotly$prior_setting)[5]),
+                  label = unique(kready_race_plotly$prior_setting)[5]),
+                            list(method = &quot;restyle&quot;,
+                   args = list(&quot;transforms[0].value&quot;, unique(kready_race_plotly$prior_setting)[6]),
+                   label = unique(kready_race_plotly$prior_setting)[6])))))</code></pre>
+<div id="htmlwidget-ae2bdcdb62ed2296a59f" style="width:672px;height:480px;" class="plotly html-widget"></div>
+<script type="application/json" data-for="htmlwidget-ae2bdcdb62ed2296a59f">{"x":{"visdat":{"95601cda6dae":["function () ","plotlyVisDat"]},"cur_data":"95601cda6dae","attrs":{"95601cda6dae":{"alpha_stroke":1,"sizes":[10,100],"spans":[1,20],"x":{},"y":{},"name":"Black","type":"scatter","mode":"lines","line":{"color":"#d63631","width":4},"transforms":[{"type":"filter","target":{},"operation":"in","value":"All Students"}],"inherit":true},"95601cda6dae.1":{"alpha_stroke":1,"sizes":[10,100],"spans":[1,20],"x":{},"y":{},"name":"White","type":"scatter","mode":"lines","line":{"color":"#323844","width":4},"transforms":[{"type":"filter","target":{},"operation":"in","value":"All Students"}],"inherit":true},"95601cda6dae.2":{"alpha_stroke":1,"sizes":[10,100],"spans":[1,20],"x":{},"y":{},"name":"Hispanic","type":"scatter","mode":"lines","line":{"color":"#eaab21","width":4},"transforms":[{"type":"filter","target":{},"operation":"in","value":"All Students"}],"inherit":true},"95601cda6dae.3":{"alpha_stroke":1,"sizes":[10,100],"spans":[1,20],"x":{},"y":{},"name":"Asian","type":"scatter","mode":"lines","line":{"color":"#a7bfd7","width":4},"transforms":[{"type":"filter","target":{},"operation":"in","value":"All Students"}],"inherit":true}},"layout":{"margin":{"b":40,"l":60,"t":25,"r":10},"title":"Kindergerten Readiness by Race","xaxis":{"domain":[0,1],"automargin":true,"title":"Year"},"yaxis":{"domain":[0,1],"automargin":true,"title":"Percent Ready","range":[0,100]},"updatemenus":[{"x":1.25,"y":0.75,"buttons":[{"method":"restyle","args":["transforms[0].value","All Students"],"label":"All Students"},{"method":"restyle","args":["transforms[0].value","State Funded"],"label":"State Funded"},{"method":"restyle","args":["transforms[0].value","Head Start"],"label":"Head Start"},{"method":"restyle","args":["transforms[0].value","Child Care"],"label":"Child Care"},{"method":"restyle","args":["transforms[0].value","Home"],"label":"Home"},{"method":"restyle","args":["transforms[0].value","Other"],"label":"Other"}]}],"hovermode":"closest","showlegend":true},"source":"A","config":{"showSendToCloud":false},"data":[{"x":[2014,2014,2014,2014,2014,2014,2015,2015,2015,2015,2015,2015,2016,2016,2016,2016,2016,2016,2017,2017,2017,2017,2017,2017,2018,2018,2018,2018,2018,2018,2019,2019,2019,2019,2019,2019,2020,2020,2020,2020,2020,2020],"y":[46.9,50.2,52.7,58.3,28.1,49.2,48.8,53.2,56.9,55.8,26.8,52.8,42.6,48.6,56.4,48.1,24.6,45,50.5,59.8,61.4,55.5,28.8,51.2,53.8,65.5,63.4,58.5,27.6,64.1,51.2,63.1,63.6,58.1,30.2,55.3,49.5,62.2,61,58.3,28.5,47.6],"name":"Black","type":"scatter","mode":"lines","line":{"color":"#d63631","width":4},"transforms":[{"type":"filter","target":["All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other"],"operation":"in","value":"All Students"}],"marker":{"color":"rgba(31,119,180,1)","line":{"color":"rgba(31,119,180,1)"}},"error_y":{"color":"rgba(31,119,180,1)"},"error_x":{"color":"rgba(31,119,180,1)"},"xaxis":"x","yaxis":"y","frame":null},{"x":[2014,2014,2014,2014,2014,2014,2015,2015,2015,2015,2015,2015,2016,2016,2016,2016,2016,2016,2017,2017,2017,2017,2017,2017,2018,2018,2018,2018,2018,2018,2019,2019,2019,2019,2019,2019,2020,2020,2020,2020,2020,2020],"y":[60.3,53,42.2,80.2,42.1,70.6,58.5,47.3,50,76.3,39.2,65,54.9,49.3,41.4,73.7,32.1,61.3,56.1,50.2,61.8,75,29.8,65.9,58.8,52.9,51.1,77.9,35.2,63.7,58.1,59.6,50.7,75.2,33.4,62.5,57.3,55.3,53.3,74.2,33.8,64.3],"name":"White","type":"scatter","mode":"lines","line":{"color":"#323844","width":4},"transforms":[{"type":"filter","target":["All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other"],"operation":"in","value":"All Students"}],"marker":{"color":"rgba(255,127,14,1)","line":{"color":"rgba(255,127,14,1)"}},"error_y":{"color":"rgba(255,127,14,1)"},"error_x":{"color":"rgba(255,127,14,1)"},"xaxis":"x","yaxis":"y","frame":null},{"x":[2014,2014,2014,2014,2014,2014,2015,2015,2015,2015,2015,2015,2016,2016,2016,2016,2016,2016,2017,2017,2017,2017,2017,2017,2018,2018,2018,2018,2018,2018,2019,2019,2019,2019,2019,2019,2020,2020,2020,2020,2020,2020],"y":[30.1,29.6,23.9,55.4,24.7,30.2,28.5,34.6,36.5,45.7,16.3,23.2,27.6,32.5,36.9,49.2,12.8,32.6,28.1,35.8,48.2,49.3,13.2,31.8,32.9,47.3,45.1,43.3,16.5,14.3,27.3,43.5,33.3,48.3,11.7,34.5,33,46.9,40.5,49.6,17.4,30.9],"name":"Hispanic","type":"scatter","mode":"lines","line":{"color":"#eaab21","width":4},"transforms":[{"type":"filter","target":["All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other"],"operation":"in","value":"All Students"}],"marker":{"color":"rgba(44,160,44,1)","line":{"color":"rgba(44,160,44,1)"}},"error_y":{"color":"rgba(44,160,44,1)"},"error_x":{"color":"rgba(44,160,44,1)"},"xaxis":"x","yaxis":"y","frame":null},{"x":[2014,2014,null,2014,2014,2014,2015,2015,2015,2015,2015,2015,2016,2016,2016,2016,2016,2016,2017,2017,2017,2017,2017,2017,2018,2018,2018,2018,2018,2018,2019,2019,2019,2019,2019,2019,2020,2020,2020,2020,2020,2020],"y":[68,50.9,null,87.6,43.8,85.7,65.8,56.1,57.9,90.5,38.8,61.9,65.2,63.2,55.6,81.7,36.1,71.4,67.4,61.7,59.1,85.5,42.7,85.7,74.4,77.3,57.1,89.4,44.6,87.5,73,72.9,76.9,87.2,54.7,75,64.4,62.2,40,84.3,37.5,76.5],"name":"Asian","type":"scatter","mode":"lines","line":{"color":"#a7bfd7","width":4},"transforms":[{"type":"filter","target":["All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other"],"operation":"in","value":"All Students"}],"marker":{"color":"rgba(214,39,40,1)","line":{"color":"rgba(214,39,40,1)"}},"error_y":{"color":"rgba(214,39,40,1)"},"error_x":{"color":"rgba(214,39,40,1)"},"xaxis":"x","yaxis":"y","frame":null}],"highlight":{"on":"plotly_click","persistent":false,"dynamic":false,"selectize":false,"opacityDim":0.2,"selected":{"opacity":1},"debounce":0},"shinyEvents":["plotly_hover","plotly_click","plotly_selected","plotly_relayout","plotly_brushed","plotly_brushing","plotly_clickannotation","plotly_doubleclick","plotly_deselect","plotly_afterplot","plotly_sunburstclick"],"base_url":"https://plot.ly"},"evals":[],"jsHooks":[]}</script>
 </div>
 </div>
 

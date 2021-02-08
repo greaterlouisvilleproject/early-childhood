@@ -6,7 +6,8 @@ output:
   html_document:
     self_contained: no
     toc: yes
-    toc_float: yes
+    toc_float:
+      collapsed: true
     code_folding: hide
 knit: (function(inputFile, encoding) { rmarkdown::render(inputFile, encoding = encoding, output_file = file.path(dirname(inputFile), 'index.html')) })
 ---
@@ -34,6 +35,7 @@ library(scales)
 library(ggrepel)
 library(leaflet)
 library(sf)
+library(plotly)
 
 # Import data and functions from glp packages
 if (FALSE) {
@@ -224,7 +226,8 @@ ranking <- function(df, var, plot_title = "",
 }
 
 plt_by <- function(df, group_var, var, title_text = "Home Mortgages", 
-                   y_axis = "Percent", y_min = NA, units = "number") {
+                   y_axis = "Percent", y_min = NA, units = "number", 
+                   remove_legend_title = F) {
   
   var <- enquo(var)
   group_var <- enquo(group_var)
@@ -238,7 +241,7 @@ plt_by <- function(df, group_var, var, title_text = "Home Mortgages",
     labs(title = title_text, x = "Year", y = y_axis) +
     theme(legend.position = "bottom")
   
-  color_pal <- c("#323844", "#d63631", "#eaab21", "#a7bfd7")[1:length(unique(pull(df, !!group_var)))]
+  color_pal <- c("#d63631", "#323844", "#eaab21", "#a7bfd7", "#7CE3B6")[1:length(unique(pull(df, !!group_var)))]
   
   plt <- plt  + 
     scale_colour_manual(values = color_pal) +
@@ -262,6 +265,13 @@ plt_by <- function(df, group_var, var, title_text = "Home Mortgages",
     plt <- plt + ylim(y_min, NA)
   }
   
+  if (remove_legend_title) plt <- plt + theme(legend.title = element_blank())
+  
+  # if(length(unique(pull(df, !!group_var))) >= 4){
+  #   p <- p + guides(colour = guide_legend(label.position = "top",
+  #                                         keywidth = unit(6 * text_scale, "lines")))
+  # }
+  
   if(units == "Dollars") plt <- plt + scale_y_continuous(labels = scales::dollar)
   if(units == "Percent") plt <- plt + scale_y_continuous(labels = function(x) scales::percent(x, accuracy = 1, scale = 1))
 
@@ -282,6 +292,8 @@ plt_by <- function(df, group_var, var, title_text = "Home Mortgages",
 # Early Care and Pre-K
 
 ## Cost and Availability of Childcare
+
+Data obtained from KyNECT. Pending Nate's analysis.
 
 ```{r childcare_provider_data}
 # Creates four data frames linked by license number (CLR)
@@ -387,20 +399,34 @@ provider_other %<>%
 
 ## Childcare Workers compensation / education
 
+Pending upload from Nate.
+
 ## Head Start
+
+Have data from KYSTATS, pending analysis.
 
 # Child Health
 
 ## Adverse Childhood Experiences
 
-# Child Food Security
-```{r food_security }
+Child data incoming from Sarojini. ETA Friday 2/12.
+Adult factors have been mapped to data sources.
 
-```
+# Child Food Security
+
+Data incoming from Feeding America
 
 # Kindergarten Readiness 
 
+Kindergarten readiness is an important indicator of whether children will succeed in the classroom. While the measure has limitations, it is a strong indicator of future student performance. 
+
+Based on data from KySTATS in 2015, students who entered school ready for kindergarten were more likely to 
+
 ## by Student Zip Code
+
+This data was aquired through a data request to JCPS. Note that this data only includes parents who send their children to JCPS, so it's not a reflection of all children in a zip code.
+
+The data shows wide disparities in the kindergarten readiness results 
 ```{r kindergarten_readiness_data}
 
 # Load zip code map
@@ -463,6 +489,8 @@ ggplot(map_zip) +
 ```
 
 ## by School Location
+
+This map shows kindergarten readiness results by school. Schools are shown by their student assignment area.
 ```{r clean_data}
 load("raw_data/kready_jc.RData")
 load("raw_data/map_elementary.RData")
@@ -506,6 +534,14 @@ ggplot(map_elementary) +
 ```
 
 ## by Prior Setting
+
+The largest differences in kindergarten readiness are seen based on prior setting.
+
+Children who were in licensed childcare providers prior to entering school are most likely to be kindergarten ready, while children who stayed at home with a parent or guardian are least likely to be kindergarten ready.
+
+Children who were previously enrolled in Head Start, a State-funded preschool program, or were in another home setting, such as a private sitter or other family member, fall in the middle.
+
+
 ```{r kreaady_prior_setting}
 load("raw_data/kready_ky.RData")
 
@@ -514,28 +550,95 @@ kready_louisville <- kready_ky %>%
          sex == "total",
          race == "total",
          frl_status == "total",
-         prior_setting %in% c("State Funded", "Head Start", "Child Care", "Home"))
+         prior_setting %in% c("State-Funded", "Head Start", "Child Care", "Home", "Other"))
 
 plt_by(kready_louisville,
        prior_setting,
        kready,
-       title_text = "Kindergarten Readiness by Prior Setting")
+       title_text = "Kindergarten Readiness by Prior Setting",
+       remove_legend_title = T)
 
 ```
 
 ## by Race
-```{r kreaady_race}
+```{r kready_race}
 kready_race <- kready_ky %>%
   filter(variable == "lou",
          sex == "total",
          race %in% c("black", "white"),
          frl_status == "total",
-         prior_setting == "All Students")
+         prior_setting == "All Students") %>%
+  mutate(race = str_to_title(race))
 
 plt_by(kready_race,
        race,
        kready,
        title_text = "Kindergarten Readiness by Race")
+```
+
+## By Race and Prior setting
+```{r kready_race_setting}
+kready_race_plotly <- kready_ky %>%
+  filter(variable == "lou",
+         sex == "total",
+         race %in% c("black", "white", "hispanic", "asian"),
+         frl_status == "total",
+         prior_setting %in% c("All Students", "State Funded", "Head Start", "Child Care", "Home", "Other")) %>%
+  mutate(race = str_to_title(race)) %>%
+  pivot_wider(names_from = race, values_from = kready)
+
+trnfm_list <- 
+  list(
+      list(
+        type = 'filter',
+        target = ~prior_setting,
+        operation = 'in',
+        value = unique(kready_race_plotly$prior_setting)[1]
+      ))
+
+plot_ly(kready_race_plotly) %>%
+  # add_trace(x = ~year, y = ~Black_ChildCare, name = "Black", type = "scatter", mode = "lines",
+  #           line = list(color = '#d63631', width = 4), visible="legendonly") %>%
+  # add_trace(x = ~year, y = ~White_ChildCare, name = "White", type = "scatter", mode = "lines",
+  #           line = list(color = '#323844', width = 4), visible="legendonly") %>%
+  add_trace(x = ~year, y = ~Black, name = "Black", type = "scatter", mode = "lines", 
+            line = list(color = '#d63631', width = 4), transforms = trnfm_list) %>%
+  add_trace(x = ~year, y = ~White, name = "White", type = "scatter", mode = "lines", 
+            line = list(color = '#323844', width = 4), transforms = trnfm_list) %>%
+  add_trace(x = ~year, y = ~Hispanic, name = "Hispanic", type = "scatter", mode = "lines", 
+            line = list(color = '#eaab21', width = 4), transforms = trnfm_list) %>%
+  add_trace(x = ~year, y = ~Asian, name = "Asian", type = "scatter", mode = "lines", 
+            line = list(color = '#a7bfd7', width = 4), transforms = trnfm_list) %>%
+  # add_trace(x = ~year, y = ~Black_Home, name = "Black_Home", type = "scatter", mode = "lines", 
+  #           line = list(color = '#d63631', width = 4), showlegend=FALSE) %>%
+  # add_trace(x = ~year, y = ~White_Home, name = "White_Home", type = "scatter", mode = "lines", 
+  #           line = list(color = '#323844', width = 4), showlegend=FALSE) %>%
+  layout(title = "Kindergerten Readiness by Race",
+         xaxis = list(title = "Year"),
+         yaxis = list(title = "Percent Ready", range = c(0, 100)),
+         updatemenus = list(
+          list(
+            x = 1.25,
+            y = 0.75,
+            buttons = list(
+              list(method = "restyle",
+                   args = list("transforms[0].value", unique(kready_race_plotly$prior_setting)[1]),
+                   label = unique(kready_race_plotly$prior_setting)[1]),
+              list(method = "restyle",
+                  args = list("transforms[0].value", unique(kready_race_plotly$prior_setting)[2]),
+                  label = unique(kready_race_plotly$prior_setting)[2]),
+              list(method = "restyle",
+                  args = list("transforms[0].value", unique(kready_race_plotly$prior_setting)[3]),
+                  label = unique(kready_race_plotly$prior_setting)[3]),
+              list(method = "restyle",
+                  args = list("transforms[0].value", unique(kready_race_plotly$prior_setting)[4]),
+                  label = unique(kready_race_plotly$prior_setting)[4]),
+              list(method = "restyle",
+                  args = list("transforms[0].value", unique(kready_race_plotly$prior_setting)[5]),
+                  label = unique(kready_race_plotly$prior_setting)[5]),
+                            list(method = "restyle",
+                   args = list("transforms[0].value", unique(kready_race_plotly$prior_setting)[6]),
+                   label = unique(kready_race_plotly$prior_setting)[6])))))
 
 ```
 
