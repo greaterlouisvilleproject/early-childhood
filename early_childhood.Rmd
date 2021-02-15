@@ -397,9 +397,51 @@ provider_other %<>%
 
 ```
 
-## Childcare Workers compensation / education
+## Childcare Workers compensation
 
-Pending upload from Nate.
+```{r}
+read_and_prep <- function(file_path) {
+  df <- readxl::read_excel(file_path) %>%
+  mutate(area = as.numeric(area),
+         h_median = as.numeric(h_median)) %>%
+  filter(area %in% c(24340, 41180, 36420, 46140, 24860, 28940, 13820, 31140, 26900, 
+                        28140, 36540, 24660, 16740, 18140, 17140, 34980, 32820) & 
+           occ_title == "Childcare Workers") %>%
+  select(area, area_title, tot_emp, h_mean, a_mean, h_median, a_median) %>%
+  mutate(city = case_when(
+    area == 24340 ~ "Grand Rapids",
+    area == 41180 ~ "St. Louis",
+    area == 36420 ~ "Oklahoma City",
+    area == 46140 ~ "Tulsa",
+    area == 24860 ~ "Greenville",
+    area == 28940 ~ "Knoxville",
+    area == 13820 ~ "Birmingham",
+    area == 31140 ~ "Louisville",
+    area == 26900 ~ "Indianapolis",
+    area == 28140 ~ "Kansas City",
+    area == 36540 ~ "Omaha",
+    area == 24660 ~ "Greensboro",
+    area == 16740 ~ "Charlotte",
+    area == 18140 ~ "Columbus",
+    area == 17140 ~ "Cincinnati",
+    area == 34980 ~ "Nashville",
+    area == 32820 ~ "Memphis",
+    TRUE ~ NA_character_
+  ))
+    
+return(df)
+  
+}
+
+df19 <- read_and_prep("bls_data/MSA_M2019_dl.xlsx")
+
+ranking(df19, "h_median", 
+        text_size = 1, 
+        plot_title = "Median Wages for Childcare Workers", 
+        subtitle_text = "2019",
+        y_title = "Dollars")
+```
+
 
 ## Head Start
 
