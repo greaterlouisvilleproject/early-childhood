@@ -402,12 +402,13 @@ provider_other %<>%
 ```{r}
 read_and_prep <- function(file_path) {
   df <- readxl::read_excel(file_path) %>%
+    janitor::clean_names() %>%
   mutate(area = as.numeric(area),
          h_median = as.numeric(h_median)) %>%
   filter(area %in% c(24340, 41180, 36420, 46140, 24860, 28940, 13820, 31140, 26900, 
                         28140, 36540, 24660, 16740, 18140, 17140, 34980, 32820) & 
            occ_title == "Childcare Workers") %>%
-  select(area, area_title, tot_emp, h_mean, a_mean, h_median, a_median) %>%
+  select(area, tot_emp, h_mean, a_mean, h_median, a_median) %>%
   mutate(city = case_when(
     area == 24340 ~ "Grand Rapids",
     area == 41180 ~ "St. Louis",
@@ -437,9 +438,47 @@ df19 <- read_and_prep("bls_data/MSA_M2019_dl.xlsx")
 
 ranking(df19, "h_median", 
         text_size = 1, 
-        plot_title = "Median Wages for Childcare Workers", 
-        subtitle_text = "2019",
+        plot_title = "Median Wages for Childcare Workers, 2019", 
+        #subtitle_text = "2019", #font didn't really work here. Could play with text size more?
         y_title = "Dollars")
+```
+```{r}
+df18 <- read_and_prep("bls_data/MSA_M2018_dl.xlsx") %>%
+  mutate(year = 2018)
+
+df17 <- read_and_prep("bls_data/MSA_M2017_dl.xlsx") %>%
+  mutate(year = 2017)
+
+df16 <- read_and_prep("bls_data/MSA_M2016_dl.xlsx") %>%
+  mutate(year = 2016)
+
+df15 <- read_and_prep("bls_data/MSA_M2015_dl.xlsx") %>%
+  mutate(year = 2015)
+
+df14 <- read_and_prep("bls_data/MSA_M2014_dl.xlsx") %>%
+  mutate(year = 2014)
+
+df13 <- read_and_prep("bls_data/MSA_M2013_dl_1_AK_IN.xls") %>%
+  bind_rows(read_and_prep("bls_data/MSA_M2013_dl_2_KS_NY.xls")) %>%
+  bind_rows(read_and_prep("bls_data/MSA_M2013_dl_3_OH_WY.xls")) %>%
+  mutate(year = 2013)
+
+df12 <- read_and_prep("bls_data/MSA_M2012_dl_1_AK_IN.xls") %>%
+  bind_rows(read_and_prep("bls_data/MSA_M2012_dl_2_KS_NY.xls")) %>%
+  bind_rows(read_and_prep("bls_data/MSA_M2012_dl_3_OH_WY.xls")) %>%
+  mutate(year = 2012)
+
+df11 <- read_and_prep("bls_data/MSA_M2011_dl_1_AK_IN.xls") %>%
+  bind_rows(read_and_prep("bls_data/MSA_M2011_dl_2_KS_NY.xls")) %>%
+  bind_rows(read_and_prep("bls_data/MSA_M2011_dl_3_OH_WY.xls")) %>%
+  mutate(year = 2011)
+
+df10 <- read_and_prep("bls_data/MSA_M2010_dl_1.xls") %>%
+  bind_rows(read_and_prep("bls_data/MSA_M2010_dl_2.xls")) %>%
+  bind_rows(read_and_prep("bls_data/MSA_M2010_dl_3.xls")) %>%
+  mutate(year = 2010)
+
+df_t <- bind_rows(df19, df18, df17, df16, df15, df14, df13, df12, df11, df10)
 ```
 
 
