@@ -1,0 +1,58 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(splitstackshape)
+```
+
+```{r}
+df <- read_csv("usa_00012.csv")
+
+df_city <- df %>%
+  filter(MET2013 %in% c(24340, 41180, 36420, 46140, 24860, 28940, 13820, 31140, 26900, 
+                        28140, 36540, 24660, 16740, 18140, 17140, 34980, 32820)) %>%
+  mutate(city = case_when(
+    MET2013 == 24340 ~ "Grand Rapids",
+    MET2013 == 41180 ~ "St. Louis",
+    MET2013 == 36420 ~ "Oklahoma City",
+    MET2013 == 46140 ~ "Tulsa",
+    MET2013 == 24860 ~ "Greenville",
+    MET2013 == 28940 ~ "Knoxville",
+    MET2013 == 13820 ~ "Birmingham",
+    MET2013 == 31140 ~ "Louisville",
+    MET2013 == 26900 ~ "Indianapolis",
+    MET2013 == 28140 ~ "Kansas City",
+    MET2013 == 36540 ~ "Omaha",
+    MET2013 == 24660 ~ "Greensboro",
+    MET2013 == 16740 ~ "Charlotte",
+    MET2013 == 18140 ~ "Columbus",
+    MET2013 == 17140 ~ "Cincinnati",
+    MET2013 == 34980 ~ "Nashville",
+    MET2013 == 32820 ~ "Memphis",
+    TRUE ~ NA_character_
+  )) %>%
+  write_csv("glp_cc_MSAs.csv")
+```
+
+```{r}
+df_cc <- df_city %>%
+  filter(OCCSOC == "399011") 
+
+# Going to deal with weights by just expanding the dataframe
+df_expand <- expandRows(df_cc, "PERWT")
+  
+df_sum <- df_expand %>%
+  group_by(city) %>%
+  summarize(count = n(),
+            wage = mean(INCWAGE, na.rm = TRUE),
+            weeks = mean(WKSWORK1, na.rm = TRUE),
+            hours = mean(UHRSWORK, na.rm = TRUE),
+            yearly_hours = weeks * hours,
+            hourly_wage = wage/ yearly_hours)
+
+```
+
+
