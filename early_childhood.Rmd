@@ -931,4 +931,3 @@ plot_ly(kready_race_plotly) %>%
                    label = unique(kready_race_plotly$prior_setting)[6])))))
 
 ```
-
