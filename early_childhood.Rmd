@@ -39,8 +39,7 @@ library(plotly)
 
 # Import data and functions from glp packages
 source("helper_functions.R")
-load("raw_data/map_zip.RData")
-load("raw_data/FIPS_df.RData")
+load("raw_data/glptools_exports.RData")
 ```
 
 # Early Care and Pre-K
@@ -191,10 +190,12 @@ return(df)
 df19 <- read_and_prep("bls_data/MSA_M2019_dl.xlsx") %>%
   mutate(year = 2019)
 
-ranking(df19, "h_median", 
-        text_size = 1, 
+ranking(rename(df19, MSA=area), 
+        "h_median", 
+        text_size = 2, 
         plot_title = "Median Wages for Childcare Workers, 2019", 
-        #subtitle_text = "2019", #font didn't really work here. Could play with text size more?
+        year = 2019,
+        subtitle_text = "2019", #font didn't really work here. Could play with text size more?
         y_title = "Dollars")
 ```
 
@@ -252,7 +253,6 @@ df_t <- left_join(df_t, df_cpi, by = "year")
 
 df_t <- df_t %>%
   mutate(h_median = h_median * multiplier)
-`%cols_in%` <- function (df, columns) columns[columns %in% names(df)]
 ```
 
 
@@ -287,9 +287,6 @@ This data was aquired through a data request to JCPS. Note that this data only i
 
 The data shows wide disparities in the kindergarten readiness results 
 ```{r kindergarten_readiness_data}
-
-# Load zip code map
-load("raw_data/map_zip.RData")
 
 # Ready in kready data
 kready_zip <- readxl::read_excel("raw_data/Copy of 1920_Brigance Zip Code_Prior Settings TablesForORR.xlsx",

@@ -6,9 +6,11 @@
 # Sae data files
 if (FALSE) {
   library(glptools)
-  save(map_zip, file = "raw_data/map_zip.RData")
-  save(FIPS_df, file = "raw_data/FIPS_df.RData")
+  save(map_zip, FIPS_df, MSA_df, MSA_FIPS, file = "raw_data/glptools_exports.RData")
 }
+
+`%cols_in%` <- function (df, columns) columns[columns %in% names(df)]
+`%not_in%`  <- function (x, table) match(x, table, nomatch = 0L) == 0L
 
 assign_row_join <- function(df_1, df_2){
   tryCatch({
@@ -56,7 +58,6 @@ pull_peers <- function(df, add_info = F, subset_to_peers = T, geog = "", additio
       }
     }
   }
-  df %<>% organize()
 
   df
 }
@@ -101,6 +102,7 @@ ranking <- function(df, var, plot_title = "",
                     bar_label = TRUE, sigfig = 3, accuracy = 0.1,
                     label_function, alternate_text = NULL,
                     ranking_colors = TRUE, text_size){
+
   # Copy variable var to a new column for use with the '$' operator
   var <- dplyr:::tbl_at_vars(df, vars(!!enquo(var)))
   df$var <- df[[var]]
@@ -108,7 +110,6 @@ ranking <- function(df, var, plot_title = "",
   if ("sex" %in% names(df)) df <- df[df$sex == sex,]
   if ("race" %in% names(df)) df <- df[df$race == race,]
   if("year" %in% names(df)) {
-    if (is.null(year)) year <- max(years_in_df(df, var))
     df <- df[df$year %in% year,]
     if (length(year) > 1) {
       df %<>%
@@ -118,7 +119,7 @@ ranking <- function(df, var, plot_title = "",
     }
   }
   # Add peer data if not already present
-   if (df_type(df) %in% c("FIPS", "MSA") & "current" %not_in% names(df)) df %<>% pull_peers(add_info = T)
+   if ("city" %not_in% names(df)) df %<>% pull_peers(add_info = T)
 
   # Sort according to order parameter
   if (order %in% c("descending", "Descending")) df %<>% arrange(desc(var))
@@ -141,7 +142,7 @@ ranking <- function(df, var, plot_title = "",
     # df$color[df$var > breaks$brks[2] & df$var <= breaks$brks[3]] <- color_names[2]
     # df$color[df$var > breaks$brks[3]] <- color_names[3]
 
-    color_values <- c("#d63631", "#323844")
+    color_values <- c("#323844", "#d63631")
     color_names <- c("gray", "red")
 
     df$color <- "red"
@@ -214,8 +215,10 @@ ranking <- function(df, var, plot_title = "",
                  axis.text.x = element_blank(),
                  plot.caption = element_text(size = 5 * text_size, lineheight = 0.5))
   if(subtitle_text != ""){
-    p <- p + theme(plot.subtitle = element_text(hjust = 0.5, size = 5 * text_size)) +
-      labs(subtitle = subtitle_text)
+    p <- p +
+      labs(subtitle = subtitle_text) +
+      theme(plot.subtitle = element_text(hjust = 0.5, size = 10 * text_size))
+
   }
   # Add numeric labels to bars based on bar_label parameter
   if (y_title != "" & bar_label) {
@@ -229,8 +232,10 @@ ranking <- function(df, var, plot_title = "",
   # Add vertical line to the left side of the bars based on the h_line parameter
   if (min(df$var, na.rm = TRUE) < 0) p <- p + geom_hline(yintercept = 0, linetype = "longdash", size = 2)
   # Add remaining text
-  p <- p + labs(title = plot_title, y = y_title,
-                x = "", caption = caption_text)
+  p <- p + labs(title = plot_title,
+                y = y_title,
+                x = "",
+                caption = caption_text)
 
   p <- p +
     theme(
@@ -421,7 +426,7 @@ trend_cc <- function(df, var,
       data = df_label,
       aes(label = label_text),
       xlim = c(xmax + (xmax - xmin) * .01, xmax + (xmax - xmin) * xmax_adjustment),
-      size = 3,
+      size = 8,
       hjust = 0,
       alpha = 1,
       segment.alpha = 0,
@@ -435,25 +440,24 @@ trend_cc <- function(df, var,
 
   #adjust theme
   p <- p + theme_bw(
-    base_size = 5 * txt_scale,
-    base_family = "Museo Sans 300")
+    base_size = 5 * txt_scale)
 
   p <- p + theme(
+    text = element_text(family = "Montserrat"),
     legend.title     = element_blank(),
     legend.position  = "top",
-    legend.margin    = margin(t = 0.4 * txt_scale, unit = "cm"),
+    legend.margin    = margin(t = 0.2 * txt_scale, unit = "cm"),
     legend.spacing.x = unit(0.4 * txt_scale, "cm"),
-    legend.text      = element_text(size = 6 * txt_scale,
-                                    margin = margin(b = 0.2 * txt_scale, t = 0.2 * txt_scale, unit = "cm")),
+    legend.text      = element_text(size = 12 * txt_scale,
+                                    margin = margin(b = 0.1 * txt_scale, t = 0.2 * txt_scale, unit = "cm")),
 
     axis.text    = element_text(size = 10 * txt_scale),
     axis.title   = element_text(size = 12 * txt_scale),
     axis.title.x = element_text(margin = margin(t = 0.3 * txt_scale, unit = "cm")),
     axis.title.y = element_text(margin = margin(r = 0.3 * txt_scale, unit = "cm")),
 
-    plot.title = element_text(size = 10 * txt_scale * title_scale,
-                              hjust = .5,
-                              margin = margin(b = 0.4 * txt_scale, unit = "cm")),
+    plot.title = element_text(size = 18 * txt_scale * title_scale,
+                              hjust = .5),
 
     plot.caption = element_text(size = 5 * txt_scale,
                                 lineheight = 0.5))

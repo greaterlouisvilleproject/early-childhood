@@ -16,7 +16,7 @@
 <title>Early Childhood</title>
 
 <script src="index_files/header-attrs-2.6/header-attrs.js"></script>
-<script src="index_files/jquery-1.11.3/jquery.min.js"></script>
+<script src="index_files/jquery-3.5.1/jquery.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link href="index_files/bootstrap-3.3.5/css/bootstrap.min.css" rel="stylesheet" />
 <script src="index_files/bootstrap-3.3.5/js/bootstrap.min.js"></script>
@@ -30,12 +30,12 @@
 <link href="index_files/highlightjs-9.12.0/default.css" rel="stylesheet" />
 <script src="index_files/highlightjs-9.12.0/highlight.js"></script>
 <script src="index_files/htmlwidgets-1.5.3/htmlwidgets.js"></script>
-<script src="index_files/plotly-binding-4.9.2.2/plotly.js"></script>
+<script src="index_files/plotly-binding-4.9.3/plotly.js"></script>
 <script src="index_files/typedarray-0.1/typedarray.min.js"></script>
-<link href="index_files/crosstalk-1.1.0.1/css/crosstalk.css" rel="stylesheet" />
-<script src="index_files/crosstalk-1.1.0.1/js/crosstalk.min.js"></script>
-<link href="index_files/plotly-htmlwidgets-css-1.52.2/plotly-htmlwidgets.css" rel="stylesheet" />
-<script src="index_files/plotly-main-1.52.2/plotly-latest.min.js"></script>
+<link href="index_files/crosstalk-1.1.1/css/crosstalk.css" rel="stylesheet" />
+<script src="index_files/crosstalk-1.1.1/js/crosstalk.min.js"></script>
+<link href="index_files/plotly-htmlwidgets-css-1.57.1/plotly-htmlwidgets.css" rel="stylesheet" />
+<script src="index_files/plotly-main-1.57.1/plotly-latest.min.js"></script>
 
 <style type="text/css">
   code{white-space: pre-wrap;}
@@ -395,9 +395,104 @@ provider_other %&lt;&gt;%
   mutate(
     Capacity = str_remove(Capacity, &quot; Children&quot;) %&gt;% as.numeric)</code></pre>
 </div>
-<div id="childcare-workers-compensation-education" class="section level2">
-<h2>Childcare Workers compensation / education</h2>
-<p>Pending upload from Nate.</p>
+<div id="childcare-workers-compensation" class="section level2">
+<h2>Childcare Workers compensation</h2>
+<pre class="r"><code>read_and_prep &lt;- function(file_path) {
+  df &lt;- readxl::read_excel(file_path) %&gt;%
+    janitor::clean_names() %&gt;%
+  mutate(area = as.numeric(area),
+         h_median = as.numeric(h_median)) %&gt;%
+  filter(area %in% c(24340, 41180, 36420, 46140, 24860, 28940, 13820, 31140, 26900, 
+                        28140, 36540, 24660, 16740, 18140, 17140, 34980, 32820) &amp; 
+           occ_title == &quot;Childcare Workers&quot;) %&gt;%
+  select(area, tot_emp, h_mean, a_mean, h_median, a_median) %&gt;%
+  mutate(city = case_when(
+    area == 24340 ~ &quot;Grand Rapids&quot;,
+    area == 41180 ~ &quot;St. Louis&quot;,
+    area == 36420 ~ &quot;Oklahoma City&quot;,
+    area == 46140 ~ &quot;Tulsa&quot;,
+    area == 24860 ~ &quot;Greenville&quot;,
+    area == 28940 ~ &quot;Knoxville&quot;,
+    area == 13820 ~ &quot;Birmingham&quot;,
+    area == 31140 ~ &quot;Louisville&quot;,
+    area == 26900 ~ &quot;Indianapolis&quot;,
+    area == 28140 ~ &quot;Kansas City&quot;,
+    area == 36540 ~ &quot;Omaha&quot;,
+    area == 24660 ~ &quot;Greensboro&quot;,
+    area == 16740 ~ &quot;Charlotte&quot;,
+    area == 18140 ~ &quot;Columbus&quot;,
+    area == 17140 ~ &quot;Cincinnati&quot;,
+    area == 34980 ~ &quot;Nashville&quot;,
+    area == 32820 ~ &quot;Memphis&quot;,
+    TRUE ~ NA_character_
+  ))
+    
+return(df)
+  
+}
+
+df19 &lt;- read_and_prep(&quot;bls_data/MSA_M2019_dl.xlsx&quot;) %&gt;%
+  mutate(year = 2019)
+
+ranking(rename(df19, MSA=area), 
+        &quot;h_median&quot;, 
+        text_size = 2, 
+        plot_title = &quot;Median Wages for Childcare Workers, 2019&quot;, 
+        year = 2019,
+        subtitle_text = &quot;2019&quot;, #font didn&#39;t really work here. Could play with text size more?
+        y_title = &quot;Dollars&quot;)</code></pre>
+<p><img src="index_files/figure-html/unnamed-chunk-1-1.png" width="672" /></p>
+<pre class="r"><code>df18 &lt;- read_and_prep(&quot;bls_data/MSA_M2018_dl.xlsx&quot;) %&gt;%
+  mutate(year = 2018)
+
+df17 &lt;- read_and_prep(&quot;bls_data/MSA_M2017_dl.xlsx&quot;) %&gt;%
+  mutate(year = 2017)
+
+df16 &lt;- read_and_prep(&quot;bls_data/MSA_M2016_dl.xlsx&quot;) %&gt;%
+  mutate(year = 2016)
+
+df15 &lt;- read_and_prep(&quot;bls_data/MSA_M2015_dl.xlsx&quot;) %&gt;%
+  mutate(year = 2015)
+
+df14 &lt;- read_and_prep(&quot;bls_data/MSA_M2014_dl.xlsx&quot;) %&gt;%
+  mutate(year = 2014)
+
+df13 &lt;- read_and_prep(&quot;bls_data/MSA_M2013_dl_1_AK_IN.xls&quot;) %&gt;%
+  bind_rows(read_and_prep(&quot;bls_data/MSA_M2013_dl_2_KS_NY.xls&quot;)) %&gt;%
+  bind_rows(read_and_prep(&quot;bls_data/MSA_M2013_dl_3_OH_WY.xls&quot;)) %&gt;%
+  mutate(year = 2013)
+
+df12 &lt;- read_and_prep(&quot;bls_data/MSA_M2012_dl_1_AK_IN.xls&quot;) %&gt;%
+  bind_rows(read_and_prep(&quot;bls_data/MSA_M2012_dl_2_KS_NY.xls&quot;)) %&gt;%
+  bind_rows(read_and_prep(&quot;bls_data/MSA_M2012_dl_3_OH_WY.xls&quot;)) %&gt;%
+  mutate(year = 2012)
+
+df11 &lt;- read_and_prep(&quot;bls_data/MSA_M2011_dl_1_AK_IN.xls&quot;) %&gt;%
+  bind_rows(read_and_prep(&quot;bls_data/MSA_M2011_dl_2_KS_NY.xls&quot;)) %&gt;%
+  bind_rows(read_and_prep(&quot;bls_data/MSA_M2011_dl_3_OH_WY.xls&quot;)) %&gt;%
+  mutate(year = 2011)
+
+df10 &lt;- read_and_prep(&quot;bls_data/MSA_M2010_dl_1.xls&quot;) %&gt;%
+  bind_rows(read_and_prep(&quot;bls_data/MSA_M2010_dl_2.xls&quot;)) %&gt;%
+  bind_rows(read_and_prep(&quot;bls_data/MSA_M2010_dl_3.xls&quot;)) %&gt;%
+  mutate(year = 2010)
+
+df_t &lt;- bind_rows(df19, df18, df17, df16, df15, df14, df13, df12, df11, df10)</code></pre>
+<pre class="r"><code>#inflate to 2019 dollars based on CPI
+df_cpi &lt;- tibble(
+  year = 2010:2019,
+  cpi_value = c(218.056, 224.939, 229.594, 232.957,
+                236.736, 237.017, 240.007, 245.120,
+                251.107, 255.657)
+) %&gt;%
+  mutate(multiplier = max(cpi_value)/ cpi_value) #scale to 2019 dollars
+
+df_t &lt;- left_join(df_t, df_cpi, by = &quot;year&quot;)
+
+df_t &lt;- df_t %&gt;%
+  mutate(h_median = h_median * multiplier)</code></pre>
+<pre class="r"><code>trend_cc(df_t, &quot;h_median&quot;)</code></pre>
+<p><img src="index_files/figure-html/unnamed-chunk-4-1.png" width="672" /></p>
 </div>
 <div id="head-start" class="section level2">
 <h2>Head Start</h2>
@@ -423,10 +518,7 @@ provider_other %&lt;&gt;%
 <h2>by Student Zip Code</h2>
 <p>This data was aquired through a data request to JCPS. Note that this data only includes parents who send their children to JCPS, so it’s not a reflection of all children in a zip code.</p>
 <p>The data shows wide disparities in the kindergarten readiness results</p>
-<pre class="r"><code># Load zip code map
-load(&quot;raw_data/map_zip.RData&quot;)
-
-# Ready in kready data
+<pre class="r"><code># Ready in kready data
 kready_zip &lt;- readxl::read_excel(&quot;raw_data/Copy of 1920_Brigance Zip Code_Prior Settings TablesForORR.xlsx&quot;,
                                  sheet = &quot;ZipCode3Years&quot;, 
                                  range =&quot;B4:K38&quot;,
@@ -625,8 +717,8 @@ plot_ly(kready_race_plotly) %&gt;%
                             list(method = &quot;restyle&quot;,
                    args = list(&quot;transforms[0].value&quot;, unique(kready_race_plotly$prior_setting)[6]),
                    label = unique(kready_race_plotly$prior_setting)[6])))))</code></pre>
-<div id="htmlwidget-ae2bdcdb62ed2296a59f" style="width:672px;height:480px;" class="plotly html-widget"></div>
-<script type="application/json" data-for="htmlwidget-ae2bdcdb62ed2296a59f">{"x":{"visdat":{"95601cda6dae":["function () ","plotlyVisDat"]},"cur_data":"95601cda6dae","attrs":{"95601cda6dae":{"alpha_stroke":1,"sizes":[10,100],"spans":[1,20],"x":{},"y":{},"name":"Black","type":"scatter","mode":"lines","line":{"color":"#d63631","width":4},"transforms":[{"type":"filter","target":{},"operation":"in","value":"All Students"}],"inherit":true},"95601cda6dae.1":{"alpha_stroke":1,"sizes":[10,100],"spans":[1,20],"x":{},"y":{},"name":"White","type":"scatter","mode":"lines","line":{"color":"#323844","width":4},"transforms":[{"type":"filter","target":{},"operation":"in","value":"All Students"}],"inherit":true},"95601cda6dae.2":{"alpha_stroke":1,"sizes":[10,100],"spans":[1,20],"x":{},"y":{},"name":"Hispanic","type":"scatter","mode":"lines","line":{"color":"#eaab21","width":4},"transforms":[{"type":"filter","target":{},"operation":"in","value":"All Students"}],"inherit":true},"95601cda6dae.3":{"alpha_stroke":1,"sizes":[10,100],"spans":[1,20],"x":{},"y":{},"name":"Asian","type":"scatter","mode":"lines","line":{"color":"#a7bfd7","width":4},"transforms":[{"type":"filter","target":{},"operation":"in","value":"All Students"}],"inherit":true}},"layout":{"margin":{"b":40,"l":60,"t":25,"r":10},"title":"Kindergerten Readiness by Race","xaxis":{"domain":[0,1],"automargin":true,"title":"Year"},"yaxis":{"domain":[0,1],"automargin":true,"title":"Percent Ready","range":[0,100]},"updatemenus":[{"x":1.25,"y":0.75,"buttons":[{"method":"restyle","args":["transforms[0].value","All Students"],"label":"All Students"},{"method":"restyle","args":["transforms[0].value","State Funded"],"label":"State Funded"},{"method":"restyle","args":["transforms[0].value","Head Start"],"label":"Head Start"},{"method":"restyle","args":["transforms[0].value","Child Care"],"label":"Child Care"},{"method":"restyle","args":["transforms[0].value","Home"],"label":"Home"},{"method":"restyle","args":["transforms[0].value","Other"],"label":"Other"}]}],"hovermode":"closest","showlegend":true},"source":"A","config":{"showSendToCloud":false},"data":[{"x":[2014,2014,2014,2014,2014,2014,2015,2015,2015,2015,2015,2015,2016,2016,2016,2016,2016,2016,2017,2017,2017,2017,2017,2017,2018,2018,2018,2018,2018,2018,2019,2019,2019,2019,2019,2019,2020,2020,2020,2020,2020,2020],"y":[46.9,50.2,52.7,58.3,28.1,49.2,48.8,53.2,56.9,55.8,26.8,52.8,42.6,48.6,56.4,48.1,24.6,45,50.5,59.8,61.4,55.5,28.8,51.2,53.8,65.5,63.4,58.5,27.6,64.1,51.2,63.1,63.6,58.1,30.2,55.3,49.5,62.2,61,58.3,28.5,47.6],"name":"Black","type":"scatter","mode":"lines","line":{"color":"#d63631","width":4},"transforms":[{"type":"filter","target":["All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other"],"operation":"in","value":"All Students"}],"marker":{"color":"rgba(31,119,180,1)","line":{"color":"rgba(31,119,180,1)"}},"error_y":{"color":"rgba(31,119,180,1)"},"error_x":{"color":"rgba(31,119,180,1)"},"xaxis":"x","yaxis":"y","frame":null},{"x":[2014,2014,2014,2014,2014,2014,2015,2015,2015,2015,2015,2015,2016,2016,2016,2016,2016,2016,2017,2017,2017,2017,2017,2017,2018,2018,2018,2018,2018,2018,2019,2019,2019,2019,2019,2019,2020,2020,2020,2020,2020,2020],"y":[60.3,53,42.2,80.2,42.1,70.6,58.5,47.3,50,76.3,39.2,65,54.9,49.3,41.4,73.7,32.1,61.3,56.1,50.2,61.8,75,29.8,65.9,58.8,52.9,51.1,77.9,35.2,63.7,58.1,59.6,50.7,75.2,33.4,62.5,57.3,55.3,53.3,74.2,33.8,64.3],"name":"White","type":"scatter","mode":"lines","line":{"color":"#323844","width":4},"transforms":[{"type":"filter","target":["All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other"],"operation":"in","value":"All Students"}],"marker":{"color":"rgba(255,127,14,1)","line":{"color":"rgba(255,127,14,1)"}},"error_y":{"color":"rgba(255,127,14,1)"},"error_x":{"color":"rgba(255,127,14,1)"},"xaxis":"x","yaxis":"y","frame":null},{"x":[2014,2014,2014,2014,2014,2014,2015,2015,2015,2015,2015,2015,2016,2016,2016,2016,2016,2016,2017,2017,2017,2017,2017,2017,2018,2018,2018,2018,2018,2018,2019,2019,2019,2019,2019,2019,2020,2020,2020,2020,2020,2020],"y":[30.1,29.6,23.9,55.4,24.7,30.2,28.5,34.6,36.5,45.7,16.3,23.2,27.6,32.5,36.9,49.2,12.8,32.6,28.1,35.8,48.2,49.3,13.2,31.8,32.9,47.3,45.1,43.3,16.5,14.3,27.3,43.5,33.3,48.3,11.7,34.5,33,46.9,40.5,49.6,17.4,30.9],"name":"Hispanic","type":"scatter","mode":"lines","line":{"color":"#eaab21","width":4},"transforms":[{"type":"filter","target":["All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other"],"operation":"in","value":"All Students"}],"marker":{"color":"rgba(44,160,44,1)","line":{"color":"rgba(44,160,44,1)"}},"error_y":{"color":"rgba(44,160,44,1)"},"error_x":{"color":"rgba(44,160,44,1)"},"xaxis":"x","yaxis":"y","frame":null},{"x":[2014,2014,null,2014,2014,2014,2015,2015,2015,2015,2015,2015,2016,2016,2016,2016,2016,2016,2017,2017,2017,2017,2017,2017,2018,2018,2018,2018,2018,2018,2019,2019,2019,2019,2019,2019,2020,2020,2020,2020,2020,2020],"y":[68,50.9,null,87.6,43.8,85.7,65.8,56.1,57.9,90.5,38.8,61.9,65.2,63.2,55.6,81.7,36.1,71.4,67.4,61.7,59.1,85.5,42.7,85.7,74.4,77.3,57.1,89.4,44.6,87.5,73,72.9,76.9,87.2,54.7,75,64.4,62.2,40,84.3,37.5,76.5],"name":"Asian","type":"scatter","mode":"lines","line":{"color":"#a7bfd7","width":4},"transforms":[{"type":"filter","target":["All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other"],"operation":"in","value":"All Students"}],"marker":{"color":"rgba(214,39,40,1)","line":{"color":"rgba(214,39,40,1)"}},"error_y":{"color":"rgba(214,39,40,1)"},"error_x":{"color":"rgba(214,39,40,1)"},"xaxis":"x","yaxis":"y","frame":null}],"highlight":{"on":"plotly_click","persistent":false,"dynamic":false,"selectize":false,"opacityDim":0.2,"selected":{"opacity":1},"debounce":0},"shinyEvents":["plotly_hover","plotly_click","plotly_selected","plotly_relayout","plotly_brushed","plotly_brushing","plotly_clickannotation","plotly_doubleclick","plotly_deselect","plotly_afterplot","plotly_sunburstclick"],"base_url":"https://plot.ly"},"evals":[],"jsHooks":[]}</script>
+<div id="htmlwidget-c1f1390cf8722bb68ba1" style="width:672px;height:480px;" class="plotly html-widget"></div>
+<script type="application/json" data-for="htmlwidget-c1f1390cf8722bb68ba1">{"x":{"visdat":{"5fbc5f615311":["function () ","plotlyVisDat"]},"cur_data":"5fbc5f615311","attrs":{"5fbc5f615311":{"alpha_stroke":1,"sizes":[10,100],"spans":[1,20],"x":{},"y":{},"name":"Black","type":"scatter","mode":"lines","line":{"color":"#d63631","width":4},"transforms":[{"type":"filter","target":{},"operation":"in","value":"All Students"}],"inherit":true},"5fbc5f615311.1":{"alpha_stroke":1,"sizes":[10,100],"spans":[1,20],"x":{},"y":{},"name":"White","type":"scatter","mode":"lines","line":{"color":"#323844","width":4},"transforms":[{"type":"filter","target":{},"operation":"in","value":"All Students"}],"inherit":true},"5fbc5f615311.2":{"alpha_stroke":1,"sizes":[10,100],"spans":[1,20],"x":{},"y":{},"name":"Hispanic","type":"scatter","mode":"lines","line":{"color":"#eaab21","width":4},"transforms":[{"type":"filter","target":{},"operation":"in","value":"All Students"}],"inherit":true},"5fbc5f615311.3":{"alpha_stroke":1,"sizes":[10,100],"spans":[1,20],"x":{},"y":{},"name":"Asian","type":"scatter","mode":"lines","line":{"color":"#a7bfd7","width":4},"transforms":[{"type":"filter","target":{},"operation":"in","value":"All Students"}],"inherit":true}},"layout":{"margin":{"b":40,"l":60,"t":25,"r":10},"title":"Kindergerten Readiness by Race","xaxis":{"domain":[0,1],"automargin":true,"title":"Year"},"yaxis":{"domain":[0,1],"automargin":true,"title":"Percent Ready","range":[0,100]},"updatemenus":[{"x":1.25,"y":0.75,"buttons":[{"method":"restyle","args":["transforms[0].value","All Students"],"label":"All Students"},{"method":"restyle","args":["transforms[0].value","State Funded"],"label":"State Funded"},{"method":"restyle","args":["transforms[0].value","Head Start"],"label":"Head Start"},{"method":"restyle","args":["transforms[0].value","Child Care"],"label":"Child Care"},{"method":"restyle","args":["transforms[0].value","Home"],"label":"Home"},{"method":"restyle","args":["transforms[0].value","Other"],"label":"Other"}]}],"hovermode":"closest","showlegend":true},"source":"A","config":{"showSendToCloud":false},"data":[{"x":[2014,2014,2014,2014,2014,2014,2015,2015,2015,2015,2015,2015,2016,2016,2016,2016,2016,2016,2017,2017,2017,2017,2017,2017,2018,2018,2018,2018,2018,2018,2019,2019,2019,2019,2019,2019,2020,2020,2020,2020,2020,2020],"y":[46.9,50.2,52.7,58.3,28.1,49.2,48.8,53.2,56.9,55.8,26.8,52.8,42.6,48.6,56.4,48.1,24.6,45,50.5,59.8,61.4,55.5,28.8,51.2,53.8,65.5,63.4,58.5,27.6,64.1,51.2,63.1,63.6,58.1,30.2,55.3,49.5,62.2,61,58.3,28.5,47.6],"name":"Black","type":"scatter","mode":"lines","line":{"color":"#d63631","width":4},"transforms":[{"type":"filter","target":["All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other"],"operation":"in","value":"All Students"}],"marker":{"color":"rgba(31,119,180,1)","line":{"color":"rgba(31,119,180,1)"}},"error_y":{"color":"rgba(31,119,180,1)"},"error_x":{"color":"rgba(31,119,180,1)"},"xaxis":"x","yaxis":"y","frame":null},{"x":[2014,2014,2014,2014,2014,2014,2015,2015,2015,2015,2015,2015,2016,2016,2016,2016,2016,2016,2017,2017,2017,2017,2017,2017,2018,2018,2018,2018,2018,2018,2019,2019,2019,2019,2019,2019,2020,2020,2020,2020,2020,2020],"y":[60.3,53,42.2,80.2,42.1,70.6,58.5,47.3,50,76.3,39.2,65,54.9,49.3,41.4,73.7,32.1,61.3,56.1,50.2,61.8,75,29.8,65.9,58.8,52.9,51.1,77.9,35.2,63.7,58.1,59.6,50.7,75.2,33.4,62.5,57.3,55.3,53.3,74.2,33.8,64.3],"name":"White","type":"scatter","mode":"lines","line":{"color":"#323844","width":4},"transforms":[{"type":"filter","target":["All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other"],"operation":"in","value":"All Students"}],"marker":{"color":"rgba(255,127,14,1)","line":{"color":"rgba(255,127,14,1)"}},"error_y":{"color":"rgba(255,127,14,1)"},"error_x":{"color":"rgba(255,127,14,1)"},"xaxis":"x","yaxis":"y","frame":null},{"x":[2014,2014,2014,2014,2014,2014,2015,2015,2015,2015,2015,2015,2016,2016,2016,2016,2016,2016,2017,2017,2017,2017,2017,2017,2018,2018,2018,2018,2018,2018,2019,2019,2019,2019,2019,2019,2020,2020,2020,2020,2020,2020],"y":[30.1,29.6,23.9,55.4,24.7,30.2,28.5,34.6,36.5,45.7,16.3,23.2,27.6,32.5,36.9,49.2,12.8,32.6,28.1,35.8,48.2,49.3,13.2,31.8,32.9,47.3,45.1,43.3,16.5,14.3,27.3,43.5,33.3,48.3,11.7,34.5,33,46.9,40.5,49.6,17.4,30.9],"name":"Hispanic","type":"scatter","mode":"lines","line":{"color":"#eaab21","width":4},"transforms":[{"type":"filter","target":["All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other"],"operation":"in","value":"All Students"}],"marker":{"color":"rgba(44,160,44,1)","line":{"color":"rgba(44,160,44,1)"}},"error_y":{"color":"rgba(44,160,44,1)"},"error_x":{"color":"rgba(44,160,44,1)"},"xaxis":"x","yaxis":"y","frame":null},{"x":[2014,2014,null,2014,2014,2014,2015,2015,2015,2015,2015,2015,2016,2016,2016,2016,2016,2016,2017,2017,2017,2017,2017,2017,2018,2018,2018,2018,2018,2018,2019,2019,2019,2019,2019,2019,2020,2020,2020,2020,2020,2020],"y":[68,50.9,null,87.6,43.8,85.7,65.8,56.1,57.9,90.5,38.8,61.9,65.2,63.2,55.6,81.7,36.1,71.4,67.4,61.7,59.1,85.5,42.7,85.7,74.4,77.3,57.1,89.4,44.6,87.5,73,72.9,76.9,87.2,54.7,75,64.4,62.2,40,84.3,37.5,76.5],"name":"Asian","type":"scatter","mode":"lines","line":{"color":"#a7bfd7","width":4},"transforms":[{"type":"filter","target":["All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other"],"operation":"in","value":"All Students"}],"marker":{"color":"rgba(214,39,40,1)","line":{"color":"rgba(214,39,40,1)"}},"error_y":{"color":"rgba(214,39,40,1)"},"error_x":{"color":"rgba(214,39,40,1)"},"xaxis":"x","yaxis":"y","frame":null}],"highlight":{"on":"plotly_click","persistent":false,"dynamic":false,"selectize":false,"opacityDim":0.2,"selected":{"opacity":1},"debounce":0},"shinyEvents":["plotly_hover","plotly_click","plotly_selected","plotly_relayout","plotly_brushed","plotly_brushing","plotly_clickannotation","plotly_doubleclick","plotly_deselect","plotly_afterplot","plotly_sunburstclick"],"base_url":"https://plot.ly"},"evals":[],"jsHooks":[]}</script>
 </div>
 </div>
 
