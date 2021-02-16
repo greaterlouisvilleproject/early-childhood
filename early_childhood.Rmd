@@ -252,11 +252,13 @@ df_t <- left_join(df_t, df_cpi, by = "year")
 
 df_t <- df_t %>%
   mutate(h_median = h_median * multiplier)
-`%cols_in%` <- function (df, columns) columns[columns %in% names(df)]
+
 ```
 
 
 ```{r}
+`%cols_in%` <- function (df, columns) columns[columns %in% names(df)]
+
 trend_cc(df_t, "h_median")
 ```
 
@@ -500,4 +502,3 @@ plot_ly(kready_race_plotly) %>%
                    label = unique(kready_race_plotly$prior_setting)[6])))))
 
 ```
-
