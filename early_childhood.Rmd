@@ -239,6 +239,24 @@ df_t <- bind_rows(df19, df18, df17, df16, df15, df14, df13, df12, df11, df10)
 
 
 ```{r}
+#inflate to 2019 dollars based on CPI
+df_cpi <- tibble(
+  year = 2010:2019,
+  cpi_value = c(218.056, 224.939, 229.594, 232.957,
+                236.736, 237.017, 240.007, 245.120,
+                251.107, 255.657)
+) %>%
+  mutate(multiplier = max(cpi_value)/ cpi_value) #scale to 2019 dollars
+
+df_t <- left_join(df_t, df_cpi, by = "year")
+
+df_t <- df_t %>%
+  mutate(h_median = h_median * multiplier)
+`%cols_in%` <- function (df, columns) columns[columns %in% names(df)]
+```
+
+
+```{r}
 trend_cc(df_t, "h_median")
 ```
 
