@@ -257,6 +257,8 @@ df_t <- df_t %>%
 
 
 ```{r}
+`%cols_in%` <- function (df, columns) columns[columns %in% names(df)]
+
 trend_cc(df_t, "h_median")
 ```
 
@@ -497,4 +499,3 @@ plot_ly(kready_race_plotly) %>%
                    label = unique(kready_race_plotly$prior_setting)[6])))))
 
 ```
-
