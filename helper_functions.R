@@ -21,6 +21,15 @@ assign_row_join <- function(df_1, df_2){
   })
 }
 
+assign_col_join <- function(df_1, df_2, by){
+  tryCatch({
+    full_join(df_1, df_2, by = by)
+  },
+  error = function(cond){
+    df_2
+  })
+}
+
 pull_peers <- function(df, add_info = F, subset_to_peers = T, geog = "", additional_geogs = ""){
 
   # If no geography provided, use MSA column. If no MSA column, use FIPS column.
@@ -60,6 +69,42 @@ pull_peers <- function(df, add_info = F, subset_to_peers = T, geog = "", additio
   }
 
   df
+}
+
+stl_merge <- function(df, ..., weight_var = "", method = "",
+                      other_grouping_vars = "", just_replace_FIPS = F, keep_counties = F){
+
+  weight_var <- as.character(substitute(weight_var))
+  variables <- dplyr:::tbl_at_vars(df, vars(...))
+  grouping_vars <- c("FIPS", "year", "sex", "race", other_grouping_vars)
+
+  if (just_replace_FIPS) return(df %>% mutate(FIPS = replace(FIPS, FIPS %in% c("29189", "29510"), "MERGED")))
+
+  if (keep_counties) {
+    df_stl <- df %>%
+      select(any_of(c(grouping_vars, variables))) %>%
+      filter(FIPS %in% c("29189", "29510"))
+  }
+
+  # For each variable to be weighted, create a new df of the applicable variables
+  for(v in variables){
+
+    temp_df <- df %>%
+      mutate(FIPS = replace(FIPS, FIPS %in% c("29189", "29510"), "MERGED")) %>%
+      group_by(across(any_of(c("FIPS", "year", "sex", "race", other_grouping_vars))))
+
+    if      (method == "mean") temp_df %<>% summarise(!!v := weighted.mean(.data[[v]], .data[[weight_var]]), .groups = "drop")
+    else if (method == "max")  temp_df %<>% summarise(!!v := max(.data[[v]], na.rm = TRUE), .groups = "drop")
+    else if (method == "min")  temp_df %<>% summarise(!!v := min(.data[[v]], na.rm = TRUE), .groups = "drop")
+    else if (method == "sum")  temp_df %<>% summarise(across(v, sum), .groups = "drop")
+
+    output <- assign_col_join(output, temp_df, by = c("FIPS", "year"))
+
+  }
+
+  if (keep_counties) output %<>% bind_rows(df_stl)
+
+  output
 }
 
 # Map function
@@ -119,7 +164,11 @@ ranking <- function(df, var, plot_title = "",
     }
   }
   # Add peer data if not already present
-   if ("city" %not_in% names(df)) df %<>% pull_peers(add_info = T)
+   if ("city" %not_in% names(df)) {
+     df %<>%
+       pull_peers(add_info = T) %>%
+       filter(current == 1)
+   }
 
   # Sort according to order parameter
   if (order %in% c("descending", "Descending")) df %<>% arrange(desc(var))
@@ -312,23 +361,20 @@ plt_by <- function(df, group_var, var, title_text = "Home Mortgages",
 
 trend_cc <- function(df, var,
                      plot_title = "", y_title = "", caption_text = "", subtitle_text = "",
-                     ylimits = "", pctiles = T, shading = F,
+                     ylimits = "", pctiles = T, shading = F, xmin = 2010, xmax = 2019,
                      label_function = NULL, axis_function = NULL, year_breaks = NULL){
 
   var <- dplyr:::tbl_at_vars(df, vars(!!enquo(var)))
 
   if (length(var) == 1) df$var <- df[[var]]
-
-  #manually set xmin and xmax
-  xmin <- 2010
-  xmax <- 2019
+  geog <- if_else("MSA" %in% names(df), "MSA", "FIPS")
 
   #reduce size of dataframe
   df <- df %>%
-    select(year, MSA = area, var)
+    select(any_of(c("year", geog, "var")))
 
-  df_wol <- df %>% filter(MSA != 31140)
-  lville <- df %>% filter(MSA == 31140)
+  df_wol <- df %>% filter(across(geog, ~ . %not_in% c("31140", "21111")))
+  lville <- df %>% filter(across(geog, ~ . %in% c("31140", "21111")))
 
   #  Group the data set by year, category, if avilable.
   #  Calculate the 25th percentile, 75th percentile,
@@ -392,8 +438,6 @@ trend_cc <- function(df, var,
     geom_point(size = 2 * txt_scale) +
     geom_line(size = 1  * txt_scale)
 
-  y_title <- "Dollars"
-
   border_space = (max(df$value, na.rm = TRUE) - min(df$value, na.rm = TRUE)) * 0.1
 
   ylimits <- c(min(df$value, na.rm = TRUE) - border_space,
@@ -404,8 +448,13 @@ trend_cc <- function(df, var,
   # Create data endpoint labels
   df_label <- df %>% filter(year == xmax)
 
-  label_text <- df_label$value %>% dollar(accuracy = .01)
-  axis_format <- dollar_format(accuracy = .01)
+  if (y_title == "Dollars") {
+    label_text <- df_label$value %>% dollar(accuracy = 0.01,)
+    axis_format <-            dollar_format(accuracy = 0.01)
+  } else if (y_title == "Percent") {
+    label_text <- df_label$value %>% percent(accuracy = 0.1, scale = 1, suffix = "%")
+    axis_format <-            percent_format(accuracy = 1,   scale = 1, suffix = "%")
+  }
 
   label_length <- max(nchar(label_text))
 
@@ -432,8 +481,6 @@ trend_cc <- function(df, var,
       segment.alpha = 0,
       family = "Museo Sans 300",
       show.legend = FALSE)
-
-  plot_title <- "Median Hourly Wages for Childcare Workers"
 
   txt_scale <- 2
   title_scale <- min(1, 48 / nchar(plot_title))

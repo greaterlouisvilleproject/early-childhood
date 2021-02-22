@@ -156,30 +156,30 @@ provider_other %<>%
 read_and_prep <- function(file_path) {
   df <- readxl::read_excel(file_path) %>%
     janitor::clean_names() %>%
-  mutate(area = as.numeric(area),
+  mutate(MSA = as.numeric(area),
          h_median = as.numeric(h_median)) %>%
-  filter(area %in% c(24340, 41180, 36420, 46140, 24860, 28940, 13820, 31140, 26900, 
+  filter(MSA %in% c(24340, 41180, 36420, 46140, 24860, 28940, 13820, 31140, 26900, 
                         28140, 36540, 24660, 16740, 18140, 17140, 34980, 32820) & 
            occ_title == "Childcare Workers") %>%
-  select(area, tot_emp, h_mean, a_mean, h_median, a_median) %>%
+  select(MSA, tot_emp, h_mean, a_mean, h_median, a_median) %>%
   mutate(city = case_when(
-    area == 24340 ~ "Grand Rapids",
-    area == 41180 ~ "St. Louis",
-    area == 36420 ~ "Oklahoma City",
-    area == 46140 ~ "Tulsa",
-    area == 24860 ~ "Greenville",
-    area == 28940 ~ "Knoxville",
-    area == 13820 ~ "Birmingham",
-    area == 31140 ~ "Louisville",
-    area == 26900 ~ "Indianapolis",
-    area == 28140 ~ "Kansas City",
-    area == 36540 ~ "Omaha",
-    area == 24660 ~ "Greensboro",
-    area == 16740 ~ "Charlotte",
-    area == 18140 ~ "Columbus",
-    area == 17140 ~ "Cincinnati",
-    area == 34980 ~ "Nashville",
-    area == 32820 ~ "Memphis",
+    MSA == 24340 ~ "Grand Rapids",
+    MSA == 41180 ~ "St. Louis",
+    MSA == 36420 ~ "Oklahoma City",
+    MSA == 46140 ~ "Tulsa",
+    MSA == 24860 ~ "Greenville",
+    MSA == 28940 ~ "Knoxville",
+    MSA == 13820 ~ "Birmingham",
+    MSA == 31140 ~ "Louisville",
+    MSA == 26900 ~ "Indianapolis",
+    MSA == 28140 ~ "Kansas City",
+    MSA == 36540 ~ "Omaha",
+    MSA == 24660 ~ "Greensboro",
+    MSA == 16740 ~ "Charlotte",
+    MSA == 18140 ~ "Columbus",
+    MSA == 17140 ~ "Cincinnati",
+    MSA == 34980 ~ "Nashville",
+    MSA == 32820 ~ "Memphis",
     TRUE ~ NA_character_
   ))
     
@@ -190,7 +190,7 @@ return(df)
 df19 <- read_and_prep("bls_data/MSA_M2019_dl.xlsx") %>%
   mutate(year = 2019)
 
-ranking(rename(df19, MSA=area), 
+ranking(df19,
         "h_median", 
         text_size = 2, 
         plot_title = "Median Wages for Childcare Workers, 2019", 
@@ -257,9 +257,9 @@ df_t <- df_t %>%
 
 
 ```{r}
-`%cols_in%` <- function (df, columns) columns[columns %in% names(df)]
-
-trend_cc(df_t, "h_median")
+trend_cc(df_t, 
+         "h_median", 
+         plot_title = "Median Hourly Wages for Childcare Workers")
 ```
 
 ## Head Start
@@ -273,9 +273,119 @@ Have data from KYSTATS, pending analysis.
 Child data incoming from Sarojini. ETA Friday 2/12.
 Adult factors have been mapped to data sources.
 
-# Child Food Security
+## Child Food Security
 
 Data incoming from Feeding America
+
+```{r}
+# Read in food insecurity data from Mind the Meal Gap
+dinner_time <- function(folder, starting_year){
+  
+  wd <- getwd()
+  directory <- paste0(wd, "/", folder)
+  file_names <- list.files(directory)
+  
+  # Read file for each year
+  for (y in starting_year:2018){
+    
+    # Create parameters to read in sheet based on the year
+    file_path <- paste0(wd, "/", folder, "/", file_names[y-2008])
+    
+    sheet_name <- case_when(
+      y %in% 2009:2010 ~ "County",
+      y %in% 2011:2018 ~ paste0(y, " County"))
+    
+    skip_num <- case_when(
+      y %in% 2009:2017 ~ 0,
+      y %in% 2018 ~ 1)
+    
+    df <- readxl::read_xlsx(file_path, sheet = sheet_name, skip = skip_num)
+
+    # Create variables names based on the year
+    food_insecure_var <- paste0(y, " Food Insecurity Rate")
+    food_insecure_num_var <- paste0("# of Food Insecure Persons in ", y)
+    child_food_insecure_var <- paste0(y, " Child food insecurity rate")
+    child_food_insecure_num_var <- paste0("# of Food Insecure Children in ", y)
+    insecure_FRL <- paste0("% food insecure children in HH w/ HH incomes below 185 FPL in ", y)
+    insecure_non_FRL <- paste0("% food insecure children in HH w/ HH incomes above 185 FPL in ", y)
+
+    # Tidy data frame
+    df %<>%
+      transmute(
+        FIPS = str_pad(FIPS, 5, "left", "0"),
+        year = y,
+        food_insecurity = .data[[food_insecure_var]],
+        food_insecurity_num = .data[[food_insecure_num_var]],
+        child_food_insecurity = .data[[child_food_insecure_var]],
+        child_food_insecurity_num = .data[[child_food_insecure_num_var]],
+        
+        low_threshold = `Low Threshold in state`,
+        low_threshold_type = `Low Threshold Type`,
+        high_threshold = `High Threshold in state`,
+        high_threshold_type = `High Threshold Type`,
+        under_low = `% FI ≤ Low Threshold`,
+        between = `% FI Btwn Thresholds`,
+        above = `% FI > High Threshold`,
+        child_below_FRL = .data[[insecure_FRL]],
+        child_above_FRL = .data[[insecure_non_FRL]])
+
+    output <- assign_row_join(output, df)
+  }
+  output
+}
+
+feeding_america <- dinner_time("raw_data/Map the Meal Gap data", starting_year = 2012)
+feeding_america_covid <- readxl::read_xlsx("raw_data/Projections data (revised Oct. 2020)/The Impact of Coronavirus on Food Insecurity Update 10.2020.xlsx", sheet = "County")
+
+feeding_america_covid %<>%
+  transmute(
+    FIPS = str_pad(FIPS, 5, "left", "0"),
+    year = 2020,
+    food_insecurity = `[Revised Projections – Oct 2020] \r\n2020 Food Insecurity  %`,
+    food_insecurity_num = `[Revised Projections – Oct 2020] \r\n2020 Food Insecurity #`,
+    child_food_insecurity = `[Revised Projections – Oct 2020] \r\n2020 Child Food Insecurity  %`,
+    child_food_insecurity_num = `[Revised Projections – Oct 2020] \r\n2020 Child Food Insecurity #`)
+
+feeding_america %<>%
+  bind_rows(feeding_america_covid)
+
+feeding_america %<>% 
+  pull_peers() %>%
+  mutate(across(
+    c(food_insecurity, child_food_insecurity, under_low, between, above, child_below_FRL, child_above_FRL), 
+    ~ . * 100))
+
+feeding_america_1 <- feeding_america %>%
+  stl_merge(food_insecurity_num, child_food_insecurity_num, method = "sum")
+
+feeding_america_2 <- feeding_america %>%
+  stl_merge(food_insecurity, under_low, between, above, method = "mean", weight_var = "food_insecurity_num")
+
+feeding_america_3 <- feeding_america %>%
+  stl_merge(child_food_insecurity, child_below_FRL, child_above_FRL, method = "mean", weight_var = "child_food_insecurity_num")
+
+feeding_america_t = left_join(feeding_america_1, feeding_america_2) %>%
+  left_join(feeding_america_3)
+
+ranking(feeding_america_t, 
+        "child_food_insecurity",
+        year = 2020,
+        order = "Ascending",
+        text_size = 1)
+
+ranking(feeding_america_t, 
+        "child_above_FRL",
+        year = 2018,
+        order = "Ascending",
+        text_size = 1)
+
+trend_cc(feeding_america_t,
+         "child_food_insecurity", 
+         plot_title = "Child Food Insecurity",
+         y_title = "Percent",
+         xmin = 2014, xmax = 2020)
+```
+
 
 # Kindergarten Readiness 
 
