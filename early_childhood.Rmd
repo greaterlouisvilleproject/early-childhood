@@ -46,8 +46,6 @@ load("raw_data/glptools_exports.RData")
 
 ## Cost and Availability of Childcare
 
-Data obtained from KyNECT. Pending Nate's analysis.
-
 ```{r childcare_provider_data}
 # Creates four data frames linked by license number (CLR)
 
@@ -150,36 +148,53 @@ provider_other %<>%
 
 ```
 
+
+```{r}
+provider_cd <- provider_cost %>%
+  group_by(Services) %>%
+  mutate(FullTime = as.numeric(FullTime)) %>%
+  summarize(mean = mean(FullTime, na.rm = TRUE),
+            median = median(FullTime, na.rm = TRUE),
+            sd = sd(FullTime, na.rm = TRUE),
+            min = min(FullTime, na.rm = TRUE),
+            max = max(FullTime, na.rm = TRUE))
+
+# Some care centers seem to have reported weekly rates. That throws the mean and sd off, but shouldn't really impact the medians. Median cost is $30 per day for infants and toddlers, down to $25 per day for school age children.
+
+# 150 a week or 7800 a year, or an average of $650 a month. 
+```
+
+
 ## Childcare Workers compensation
 
 ```{r}
 read_and_prep <- function(file_path) {
   df <- readxl::read_excel(file_path) %>%
     janitor::clean_names() %>%
-  mutate(MSA = as.numeric(area),
+  mutate(area = as.numeric(area),
          h_median = as.numeric(h_median)) %>%
-  filter(MSA %in% c(24340, 41180, 36420, 46140, 24860, 28940, 13820, 31140, 26900, 
+  filter(area %in% c(24340, 41180, 36420, 46140, 24860, 28940, 13820, 31140, 26900, 
                         28140, 36540, 24660, 16740, 18140, 17140, 34980, 32820) & 
            occ_title %in% c("Childcare Workers", "Child care workers")) %>%
-  select(MSA, tot_emp, h_mean, a_mean, h_median, a_median) %>%
+  select(area, tot_emp, h_mean, a_mean, h_median, a_median) %>%
   mutate(city = case_when(
-    MSA == 24340 ~ "Grand Rapids",
-    MSA == 41180 ~ "St. Louis",
-    MSA == 36420 ~ "Oklahoma City",
-    MSA == 46140 ~ "Tulsa",
-    MSA == 24860 ~ "Greenville",
-    MSA == 28940 ~ "Knoxville",
-    MSA == 13820 ~ "Birmingham",
-    MSA == 31140 ~ "Louisville",
-    MSA == 26900 ~ "Indianapolis",
-    MSA == 28140 ~ "Kansas City",
-    MSA == 36540 ~ "Omaha",
-    MSA == 24660 ~ "Greensboro",
-    MSA == 16740 ~ "Charlotte",
-    MSA == 18140 ~ "Columbus",
-    MSA == 17140 ~ "Cincinnati",
-    MSA == 34980 ~ "Nashville",
-    MSA == 32820 ~ "Memphis",
+    area == 24340 ~ "Grand Rapids",
+    area == 41180 ~ "St. Louis",
+    area == 36420 ~ "Oklahoma City",
+    area == 46140 ~ "Tulsa",
+    area == 24860 ~ "Greenville",
+    area == 28940 ~ "Knoxville",
+    area == 13820 ~ "Birmingham",
+    area == 31140 ~ "Louisville",
+    area == 26900 ~ "Indianapolis",
+    area == 28140 ~ "Kansas City",
+    area == 36540 ~ "Omaha",
+    area == 24660 ~ "Greensboro",
+    area == 16740 ~ "Charlotte",
+    area == 18140 ~ "Columbus",
+    area == 17140 ~ "Cincinnati",
+    area == 34980 ~ "Nashville",
+    area == 32820 ~ "Memphis",
     TRUE ~ NA_character_
   ))
     
@@ -190,12 +205,10 @@ return(df)
 df19 <- read_and_prep("bls_data/MSA_M2019_dl.xlsx") %>%
   mutate(year = 2019)
 
-ranking(df19,
-        "h_median", 
-        text_size = 2, 
+ranking(df19, "h_median", 
+        text_size = 1, 
         plot_title = "Median Wages for Childcare Workers, 2019", 
-        year = 2019,
-        subtitle_text = "2019", #font didn't really work here. Could play with text size more?
+        #subtitle_text = "2019", #font didn't really work here. Could play with text size more?
         y_title = "Dollars")
 ```
 
@@ -287,11 +300,204 @@ df_t <- df_t %>%
 
 
 ```{r}
-trend_cc(df_t, 
-         "h_median", 
-         plot_title = "Median Hourly Wages for Childcare Workers",
-         y_title = "Dollars")
+trend_cc <- function(df, var,
+                  plot_title = "", y_title = "", caption_text = "", subtitle_text = "",
+                  ylimits = "", pctiles = T, shading = F,
+                  label_function = NULL, axis_function = NULL, year_breaks = NULL){
+
+  var <- dplyr:::tbl_at_vars(df, vars(!!enquo(var)))
+
+  if (length(var) == 1) df$var <- df[[var]]
+  
+  #manually set xmin and xmax
+  xmin <- 2005
+  xmax <- 2019
+  
+  #reduce size of dataframe
+  df <- df %>%
+    select(year, MSA = area, var)
+  
+  df_wol <- df %>% filter(MSA != 31140)
+  lville <- df %>% filter(MSA == 31140)
+
+  #  Group the data set by year, category, if avilable.
+  #  Calculate the 25th percentile, 75th percentile,
+  #   and mean of the peer data set.
+  df_wol %<>%
+    group_by_at(df %cols_in% c("year")) %>%
+    summarise(q1 = quantile(var, prob = 0.25, na.rm = TRUE),
+              mean = mean(var, na.rm = TRUE),
+              q3 = quantile(var, prob = 0.75, na.rm = TRUE))
+
+  # Lville data frame contains three columns
+  lville %<>% rename(lou = var)
+
+  #join 25th percentile, 75th percentile, and Louisville values
+  df <- full_join(lville, df_wol, by = df %cols_in% c("year", "category"))
+
+  #Reshape the data to long format
+  df %<>% gather(lou, q1, mean, q3, key = "variable", value = "value")
+  
+  #No year breaks in this case
+  
+  #Line settings for the graph
+  df$style_group <- df$variable
+
+  df %<>% mutate(line_group = factor(style_group))
+
+  # Label and factor style_group with the order based on cat_names.
+  cat_levels <- ""
+  cat_labels <- ""
+
+  cat_levels <- rep(cat_levels, each = 2)
+
+  var_levels <- c(paste0(cat_levels, c("lou", "mean")),
+                  paste0(cat_levels, c("q1", "q3")))
+
+  peer_group <- c("Louisville", "Peer Mean")
+
+  peer_group <- rep(peer_group, length(cat_labels))
+  cat_labels  <- rep(cat_labels, each = 2)
+
+  var_labels <- c(paste0(cat_labels, peer_group),
+                  rep("25th and 75th Percentiles", length(cat_labels)))
+
+  df$style_group <- factor(df$style_group,
+                           levels = var_levels,
+                           labels = var_labels,
+                           ordered = TRUE)
+  
+  #Initial plot
+  p <- ggplot(data = df,
+              aes(x = year, y = value,
+                  group = line_group,
+                  colour = style_group,
+                  linetype = style_group,
+                  alpha = style_group,
+                  label = value))
+  
+  txt_scale <- 1
+
+  p <- p +
+    geom_point(size = 2 * txt_scale) +
+    geom_line(size = 1  * txt_scale)
+
+  y_title <- "Dollars"
+  
+  border_space = (max(df$value, na.rm = TRUE) - min(df$value, na.rm = TRUE)) * 0.1
+
+  ylimits <- c(min(df$value, na.rm = TRUE) - border_space,
+               max(df$value, na.rm = TRUE) + border_space)
+
+  y_axis_height <- ylimits[2] - ylimits[1]
+
+  # Create data endpoint labels
+  df_label <- df %>% filter(year == xmax)
+
+  label_text <- df_label$value %>% dollar(accuracy = .01)
+  axis_format <- dollar_format(accuracy = .01)
+
+  label_length <- max(nchar(label_text))
+
+  xmax_adjustment <- 0.01 + 0.0125 * label_length
+
+  p <- p +
+    scale_x_continuous(
+      limits = c(xmin, xmax + (xmax - xmin) * xmax_adjustment),
+      breaks = seq(xmin + 1, xmax, 2),
+      minor_breaks = waiver()) +
+    scale_y_continuous(
+      limits = ylimits,
+      breaks = pretty_breaks(),
+      labels = axis_format)
+  
+  p <- p +
+    geom_text_repel(
+      data = df_label,
+      aes(label = label_text),
+      xlim = c(xmax + (xmax - xmin) * .01, xmax + (xmax - xmin) * xmax_adjustment),
+      size = 3,
+      hjust = 0,
+      alpha = 1,
+      segment.alpha = 0,
+      family = "Museo Sans 300",
+      show.legend = FALSE)
+  
+  plot_title <- "Median Hourly Wages for Childcare Workers"
+  
+  txt_scale <- 2
+  title_scale <- min(1, 48 / nchar(plot_title))
+
+  #adjust theme
+  p <- p + theme_bw(
+    base_size = 5 * txt_scale,
+                    base_family = "Museo Sans 300")
+
+  p <- p + theme(
+    legend.title     = element_blank(),
+    legend.position  = "top",
+    legend.margin    = margin(t = 0.4 * txt_scale, unit = "cm"),
+    legend.spacing.x = unit(0.4 * txt_scale, "cm"),
+    legend.text      = element_text(size = 6 * txt_scale,
+                                    margin = margin(b = 0.2 * txt_scale, t = 0.2 * txt_scale, unit = "cm")),
+
+    axis.text    = element_text(size = 10 * txt_scale),
+    axis.title   = element_text(size = 12 * txt_scale),
+    axis.title.x = element_text(margin = margin(t = 0.3 * txt_scale, unit = "cm")),
+    axis.title.y = element_text(margin = margin(r = 0.3 * txt_scale, unit = "cm")),
+
+    plot.title = element_text(size = 10 * txt_scale * title_scale,
+                              hjust = .5,
+                              margin = margin(b = 0.4 * txt_scale, unit = "cm")),
+
+    plot.caption = element_text(size = 5 * txt_scale,
+                                lineheight = 0.5))
+
+
+  #add labels
+  p <- p + labs(
+    title   = plot_title,
+    x       = "Year",
+    y       = "Dollars",
+    caption = "Adjusted for Inflation and stated in 2019 Dollars /n Data from Bureau of Labor Statistics")
+
+    p <- p + guides(colour = guide_legend(label.position = "top"))
+    
+     #Extract stlyle labels to match setting with legend
+  line_types <- levels(df$style_group)
+
+  line_col   <- c("#00a9b7", "black", "grey50")
+
+  #set line type
+  line_type  <- rep(c("solid", "dashed"))
+  line_type <- c(line_type, "dashed")
+
+  #set line alphas. If shading is used, remove percentile lines
+  line_alpha <- rep(c(1, 0.7))
+  line_alpha <- c(line_alpha, 0.7)
+  
+  p <- p +
+    scale_colour_manual(
+      values = line_col,
+      labels = line_types) +
+    scale_linetype_manual(
+      values = line_type,
+      labels = line_types) +
+    scale_alpha_manual(
+      values = line_alpha,
+      labels = line_types)
+
+  p
+}
+
+`%cols_in%` <- function (df, columns) columns[columns %in% names(df)]
 ```
+
+
+```{r}
+trend_cc(df_t, "h_median")
+```
+
 
 ## Head Start
 
