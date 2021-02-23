@@ -291,6 +291,252 @@ div.tocify {
 </div>
 
 
+<div id="kindergarten-readiness" class="section level1">
+<h1>Kindergarten Readiness</h1>
+<p>Kindergarten readiness is an important indicator of whether children will succeed in the classroom. While the measure has limitations, it is a strong indicator of future student performance.</p>
+<p>Based on data from KySTATS, JCPS students who entered school ready for kindergarten in 2016 were over three times as likely to achieve test results at or above their grade level on their standardized K-PREP math and reading tests in the 3rd grade. This is true for both JCPS students as a whole as well as Black JCPS students in particular.</p>
+<div id="by-student-zip-code" class="section level2">
+<h2>by Student Zip Code</h2>
+<p>This data was aquired through a data request to JCPS. Note that this data only includes parents who send their children to JCPS, so it’s not a reflection of all children in a zip code.</p>
+<p>The data shows wide disparities in the kindergarten readiness results</p>
+<pre class="r"><code># Kready math
+
+# ready w/ enrichments * (% distinguished + % proficient)
+ready_prof_dist_math = (643 * (.317 + .353) + 2956 * (.122 + .355)) / 
+                    (643 * (1 - .143) + 2956 * (1 - .111)) * 100
+not_ready_prof_dist_math = 3886 * (.034 + .160) / 3886 * (1 - .111) * 100
+
+mult_math = ready_prof_dist_math / not_ready_prof_dist_math
+
+# Kready reading
+ready_prof_dist_reading = (643 * (.463 + .235) + 2956 * (.219 + .309)) / 
+                    (643 * (1 - .143) + 2956 * (1 - .111)) * 100
+not_ready_prof_dist_reading = 3886 * (.057 + .165) / 3886 * (1 - .111) * 100
+
+mult_reading = ready_prof_dist_reading / not_ready_prof_dist_reading
+
+# black children
+# ready w/ enrichments * (% distinguished + % proficient)
+ready_prof_dist_math = (149 * (.148 + .376) + 940 * (.044 + .234)) / 
+                    (149 * (1 - .067) + 940 * (1 - .089)) * 100
+not_ready_prof_dist_math = 1443 * (.013 + .089) / 1443 * (1 - .090) * 100
+
+mult_math_black = ready_prof_dist_math / not_ready_prof_dist_math
+
+# Kready reading
+ready_prof_dist_reading = (149 * (.275 + .248) + 940 * (.091 + .240)) / 
+                    (149 * (1 - .067) + 940 * (1 - .089)) * 100
+not_ready_prof_dist_reading = 1443 * (.019 + .106) / 1443 * (1 - .090) * 100
+
+mult_reading_black = ready_prof_dist_reading / not_ready_prof_dist_reading
+
+race_math = mult_math_black / mult_math
+race_reading = mult_reading_black / mult_reading
+
+
+# Ready in kready data
+kready_zip &lt;- readxl::read_excel(&quot;raw_data/Copy of 1920_Brigance Zip Code_Prior Settings TablesForORR.xlsx&quot;,
+                                 sheet = &quot;ZipCode3Years&quot;, 
+                                 range =&quot;B4:K38&quot;,
+                                 col_names = c(&quot;zip&quot;, paste0(c(&quot;num_&quot;, &quot;ready_&quot;, &quot;notready_&quot;),
+                                                             rep(2018:2020, each = 3))),
+                                 col_types = c(&quot;text&quot;, rep(&quot;numeric&quot;, 9)),
+                                 na = &quot;*&quot;)
+
+# Clean and organize data frame
+kready_zip %&lt;&gt;% 
+  pivot_longer(num_2018:notready_2020, names_to = c(&quot;var_type&quot;, &quot;year&quot;), names_sep = &quot;_&quot;) %&gt;%
+  filter(var_type != &quot;notready&quot;) %&gt;%
+  mutate(
+    var_type = case_when(var_type == &quot;num&quot; ~ &quot;population&quot;,
+                         var_type == &quot;ready&quot; ~ &quot;percent&quot;)) %&gt;%
+  transmute(
+    zip, year, var_type, 
+    kready = if_else(var_type == &quot;percent&quot;, value * 100, value))
+
+# Summarize data frame over three years due to unstable data
+kready_zip_sum &lt;- kready_zip %&gt;%
+  pivot_wider(names_from = var_type, values_from = kready) %&gt;%
+  group_by(zip) %&gt;%
+  filter(all(!is.na(percent))) %&gt;%
+  summarise(
+    percent = weighted.mean(percent, population),
+    population = sum(population),
+    .groups = &quot;drop&quot;) %&gt;%
+  rename(kready = percent)
+
+# Join data to map
+map_zip %&lt;&gt;% left_join(kready_zip_sum, by = &quot;zip&quot;)
+  
+ggplot(map_zip) + 
+  geom_sf(aes(fill = kready)) +
+  #scale_fill_manual(values = viridis::viridis(6, direction = -1), na.value = &quot;grey&quot;) +
+  viridis::scale_fill_viridis(na.value = &quot;grey&quot;, 
+                            name = &quot;Percent Ready&quot;) +
+  theme_bw(base_size = 22, base_family = &quot;Montserrat&quot;) +
+  theme(panel.grid = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        axis.title = element_blank(),
+        panel.border = element_blank()) +
+  labs(title = &quot;JCPS Kindergarden Readiness by Student&#39;s Home Zip Code&quot;,
+       subtitle = &quot;Average for the school years 2017-2018, 2018-2019, and 2019-2020&quot;) +
+  theme(
+    panel.background = element_rect(fill = &quot;transparent&quot;, color = NA), # bg of the panel
+    plot.background = element_rect(fill = &quot;transparent&quot;, color = NA), # bg of the plot
+    legend.background = element_rect(fill = &quot;transparent&quot;, color = &quot;transparent&quot;), # get rid of legend bg
+    legend.box.background = element_rect(fill = &quot;transparent&quot;, color = &quot;transparent&quot;), # get rid of legend panel bg
+    legend.key = element_rect(fill = &quot;transparent&quot;,colour = NA))</code></pre>
+<p><img src="index_files/figure-html/kindergarten_readiness_data-1.png" width="672" /></p>
+</div>
+<div id="by-school-location" class="section level2">
+<h2>by School Location</h2>
+<p>This map shows kindergarten readiness results by school. Schools are shown by their student assignment area.</p>
+<pre class="r"><code>load(&quot;raw_data/kready_jc.RData&quot;)
+load(&quot;raw_data/map_elementary.RData&quot;)
+
+# Filter out 
+kready_jc_subset &lt;- kready_jc %&gt;%
+  filter(code != &quot;275&quot;, 
+         year == 2020, 
+         demographic == &quot;All Students&quot;,
+         prior_setting == &quot;All Students&quot;) %&gt;%
+  mutate(code = str_sub(code, 4, 6) %&gt;%
+                as.numeric)
+
+map_elementary %&lt;&gt;%
+  rename(
+    SCHOOL_NAME = SCHOOL_NAM,
+    LOCATION = LocNumber,
+    CLUSTER = ClusterNum)
+
+map_elementary %&lt;&gt;%
+  left_join(kready_jc_subset, by = c(&quot;LOCATION&quot; = &quot;code&quot;))
+
+ggplot(map_elementary) + 
+  geom_sf(aes(fill = kready)) +
+  #scale_fill_manual(values = viridis::viridis(6, direction = -1), na.value = &quot;grey&quot;) +
+  viridis::scale_fill_viridis(na.value = &quot;grey&quot;, 
+                            name = &quot;Percent Ready&quot;) +
+  theme_bw(base_size = 22, base_family = &quot;Montserrat&quot;) +
+  theme(panel.grid = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        axis.title = element_blank(),
+        panel.border = element_blank()) +
+  labs(title = &quot;JCPS Kindergarden Readiness by School Location&quot;, 2020) +
+  theme(
+    panel.background = element_rect(fill = &quot;transparent&quot;, color = NA), # bg of the panel
+    plot.background = element_rect(fill = &quot;transparent&quot;, color = NA), # bg of the plot
+    legend.background = element_rect(fill = &quot;transparent&quot;, color = &quot;transparent&quot;), # get rid of legend bg
+    legend.box.background = element_rect(fill = &quot;transparent&quot;, color = &quot;transparent&quot;), # get rid of legend panel bg
+    legend.key = element_rect(fill = &quot;transparent&quot;,colour = NA))</code></pre>
+<p><img src="index_files/figure-html/clean_data-1.png" width="672" /></p>
+</div>
+<div id="by-prior-setting" class="section level2">
+<h2>by Prior Setting</h2>
+<p>The largest differences in kindergarten readiness are seen based on prior setting.</p>
+<p>Children who were in licensed childcare providers prior to entering school are most likely to be kindergarten ready, while children who stayed at home with a parent or guardian are least likely to be kindergarten ready.</p>
+<p>Children who were previously enrolled in Head Start, a State-funded preschool program, or were in another home setting, such as a private sitter or other family member, fall in the middle.</p>
+<pre class="r"><code>load(&quot;raw_data/kready_ky.RData&quot;)
+
+kready_louisville &lt;- kready_ky %&gt;%
+  filter(variable == &quot;lou&quot;,
+         sex == &quot;total&quot;,
+         race == &quot;total&quot;,
+         frl_status == &quot;total&quot;,
+         prior_setting %in% c(&quot;State-Funded&quot;, &quot;Head Start&quot;, &quot;Child Care&quot;, &quot;Home&quot;, &quot;Other&quot;))
+
+plt_by(kready_louisville,
+       prior_setting,
+       kready,
+       title_text = &quot;Kindergarten Readiness by Prior Setting&quot;,
+       remove_legend_title = T)</code></pre>
+<p><img src="index_files/figure-html/kreaady_prior_setting-1.png" width="672" /></p>
+</div>
+<div id="by-race" class="section level2">
+<h2>by Race</h2>
+<pre class="r"><code>kready_race &lt;- kready_ky %&gt;%
+  filter(variable == &quot;lou&quot;,
+         sex == &quot;total&quot;,
+         race %in% c(&quot;black&quot;, &quot;white&quot;),
+         frl_status == &quot;total&quot;,
+         prior_setting == &quot;All Students&quot;) %&gt;%
+  mutate(race = str_to_title(race))
+
+plt_by(kready_race,
+       race,
+       kready,
+       title_text = &quot;Kindergarten Readiness by Race&quot;)</code></pre>
+<p><img src="index_files/figure-html/kready_race-1.png" width="672" /></p>
+</div>
+<div id="by-race-and-prior-setting" class="section level2">
+<h2>By Race and Prior setting</h2>
+<pre class="r"><code>kready_race_plotly &lt;- kready_ky %&gt;%
+  filter(variable == &quot;lou&quot;,
+         sex == &quot;total&quot;,
+         race %in% c(&quot;black&quot;, &quot;white&quot;, &quot;hispanic&quot;, &quot;asian&quot;),
+         frl_status == &quot;total&quot;,
+         prior_setting %in% c(&quot;All Students&quot;, &quot;State Funded&quot;, &quot;Head Start&quot;, &quot;Child Care&quot;, &quot;Home&quot;, &quot;Other&quot;)) %&gt;%
+  mutate(race = str_to_title(race)) %&gt;%
+  pivot_wider(names_from = race, values_from = kready)
+
+trnfm_list &lt;- 
+  list(
+      list(
+        type = &#39;filter&#39;,
+        target = ~prior_setting,
+        operation = &#39;in&#39;,
+        value = unique(kready_race_plotly$prior_setting)[1]
+      ))
+
+plot_ly(kready_race_plotly) %&gt;%
+  # add_trace(x = ~year, y = ~Black_ChildCare, name = &quot;Black&quot;, type = &quot;scatter&quot;, mode = &quot;lines&quot;,
+  #           line = list(color = &#39;#d63631&#39;, width = 4), visible=&quot;legendonly&quot;) %&gt;%
+  # add_trace(x = ~year, y = ~White_ChildCare, name = &quot;White&quot;, type = &quot;scatter&quot;, mode = &quot;lines&quot;,
+  #           line = list(color = &#39;#323844&#39;, width = 4), visible=&quot;legendonly&quot;) %&gt;%
+  add_trace(x = ~year, y = ~Black, name = &quot;Black&quot;, type = &quot;scatter&quot;, mode = &quot;lines&quot;, 
+            line = list(color = &#39;#d63631&#39;, width = 4), transforms = trnfm_list) %&gt;%
+  add_trace(x = ~year, y = ~White, name = &quot;White&quot;, type = &quot;scatter&quot;, mode = &quot;lines&quot;, 
+            line = list(color = &#39;#323844&#39;, width = 4), transforms = trnfm_list) %&gt;%
+  add_trace(x = ~year, y = ~Hispanic, name = &quot;Hispanic&quot;, type = &quot;scatter&quot;, mode = &quot;lines&quot;, 
+            line = list(color = &#39;#eaab21&#39;, width = 4), transforms = trnfm_list) %&gt;%
+  add_trace(x = ~year, y = ~Asian, name = &quot;Asian&quot;, type = &quot;scatter&quot;, mode = &quot;lines&quot;, 
+            line = list(color = &#39;#a7bfd7&#39;, width = 4), transforms = trnfm_list) %&gt;%
+  # add_trace(x = ~year, y = ~Black_Home, name = &quot;Black_Home&quot;, type = &quot;scatter&quot;, mode = &quot;lines&quot;, 
+  #           line = list(color = &#39;#d63631&#39;, width = 4), showlegend=FALSE) %&gt;%
+  # add_trace(x = ~year, y = ~White_Home, name = &quot;White_Home&quot;, type = &quot;scatter&quot;, mode = &quot;lines&quot;, 
+  #           line = list(color = &#39;#323844&#39;, width = 4), showlegend=FALSE) %&gt;%
+  layout(title = &quot;Kindergerten Readiness by Race&quot;,
+         xaxis = list(title = &quot;Year&quot;),
+         yaxis = list(title = &quot;Percent Ready&quot;, range = c(0, 100)),
+         updatemenus = list(
+          list(
+            x = 1.25,
+            y = 0.75,
+            buttons = list(
+              list(method = &quot;restyle&quot;,
+                   args = list(&quot;transforms[0].value&quot;, unique(kready_race_plotly$prior_setting)[1]),
+                   label = unique(kready_race_plotly$prior_setting)[1]),
+              list(method = &quot;restyle&quot;,
+                  args = list(&quot;transforms[0].value&quot;, unique(kready_race_plotly$prior_setting)[2]),
+                  label = unique(kready_race_plotly$prior_setting)[2]),
+              list(method = &quot;restyle&quot;,
+                  args = list(&quot;transforms[0].value&quot;, unique(kready_race_plotly$prior_setting)[3]),
+                  label = unique(kready_race_plotly$prior_setting)[3]),
+              list(method = &quot;restyle&quot;,
+                  args = list(&quot;transforms[0].value&quot;, unique(kready_race_plotly$prior_setting)[4]),
+                  label = unique(kready_race_plotly$prior_setting)[4]),
+              list(method = &quot;restyle&quot;,
+                  args = list(&quot;transforms[0].value&quot;, unique(kready_race_plotly$prior_setting)[5]),
+                  label = unique(kready_race_plotly$prior_setting)[5]),
+                            list(method = &quot;restyle&quot;,
+                   args = list(&quot;transforms[0].value&quot;, unique(kready_race_plotly$prior_setting)[6]),
+                   label = unique(kready_race_plotly$prior_setting)[6])))))</code></pre>
+<div id="htmlwidget-5d44130ae3c23d0a4a0d" style="width:672px;height:480px;" class="plotly html-widget"></div>
+<script type="application/json" data-for="htmlwidget-5d44130ae3c23d0a4a0d">{"x":{"visdat":{"498c39e530eb":["function () ","plotlyVisDat"]},"cur_data":"498c39e530eb","attrs":{"498c39e530eb":{"alpha_stroke":1,"sizes":[10,100],"spans":[1,20],"x":{},"y":{},"name":"Black","type":"scatter","mode":"lines","line":{"color":"#d63631","width":4},"transforms":[{"type":"filter","target":{},"operation":"in","value":"All Students"}],"inherit":true},"498c39e530eb.1":{"alpha_stroke":1,"sizes":[10,100],"spans":[1,20],"x":{},"y":{},"name":"White","type":"scatter","mode":"lines","line":{"color":"#323844","width":4},"transforms":[{"type":"filter","target":{},"operation":"in","value":"All Students"}],"inherit":true},"498c39e530eb.2":{"alpha_stroke":1,"sizes":[10,100],"spans":[1,20],"x":{},"y":{},"name":"Hispanic","type":"scatter","mode":"lines","line":{"color":"#eaab21","width":4},"transforms":[{"type":"filter","target":{},"operation":"in","value":"All Students"}],"inherit":true},"498c39e530eb.3":{"alpha_stroke":1,"sizes":[10,100],"spans":[1,20],"x":{},"y":{},"name":"Asian","type":"scatter","mode":"lines","line":{"color":"#a7bfd7","width":4},"transforms":[{"type":"filter","target":{},"operation":"in","value":"All Students"}],"inherit":true}},"layout":{"margin":{"b":40,"l":60,"t":25,"r":10},"title":"Kindergerten Readiness by Race","xaxis":{"domain":[0,1],"automargin":true,"title":"Year"},"yaxis":{"domain":[0,1],"automargin":true,"title":"Percent Ready","range":[0,100]},"updatemenus":[{"x":1.25,"y":0.75,"buttons":[{"method":"restyle","args":["transforms[0].value","All Students"],"label":"All Students"},{"method":"restyle","args":["transforms[0].value","State Funded"],"label":"State Funded"},{"method":"restyle","args":["transforms[0].value","Head Start"],"label":"Head Start"},{"method":"restyle","args":["transforms[0].value","Child Care"],"label":"Child Care"},{"method":"restyle","args":["transforms[0].value","Home"],"label":"Home"},{"method":"restyle","args":["transforms[0].value","Other"],"label":"Other"}]}],"hovermode":"closest","showlegend":true},"source":"A","config":{"showSendToCloud":false},"data":[{"x":[2014,2014,2014,2014,2014,2014,2015,2015,2015,2015,2015,2015,2016,2016,2016,2016,2016,2016,2017,2017,2017,2017,2017,2017,2018,2018,2018,2018,2018,2018,2019,2019,2019,2019,2019,2019,2020,2020,2020,2020,2020,2020],"y":[46.9,50.2,52.7,58.3,28.1,49.2,48.8,53.2,56.9,55.8,26.8,52.8,42.6,48.6,56.4,48.1,24.6,45,50.5,59.8,61.4,55.5,28.8,51.2,53.8,65.5,63.4,58.5,27.6,64.1,51.2,63.1,63.6,58.1,30.2,55.3,49.5,62.2,61,58.3,28.5,47.6],"name":"Black","type":"scatter","mode":"lines","line":{"color":"#d63631","width":4},"transforms":[{"type":"filter","target":["All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other"],"operation":"in","value":"All Students"}],"marker":{"color":"rgba(31,119,180,1)","line":{"color":"rgba(31,119,180,1)"}},"error_y":{"color":"rgba(31,119,180,1)"},"error_x":{"color":"rgba(31,119,180,1)"},"xaxis":"x","yaxis":"y","frame":null},{"x":[2014,2014,2014,2014,2014,2014,2015,2015,2015,2015,2015,2015,2016,2016,2016,2016,2016,2016,2017,2017,2017,2017,2017,2017,2018,2018,2018,2018,2018,2018,2019,2019,2019,2019,2019,2019,2020,2020,2020,2020,2020,2020],"y":[60.3,53,42.2,80.2,42.1,70.6,58.5,47.3,50,76.3,39.2,65,54.9,49.3,41.4,73.7,32.1,61.3,56.1,50.2,61.8,75,29.8,65.9,58.8,52.9,51.1,77.9,35.2,63.7,58.1,59.6,50.7,75.2,33.4,62.5,57.3,55.3,53.3,74.2,33.8,64.3],"name":"White","type":"scatter","mode":"lines","line":{"color":"#323844","width":4},"transforms":[{"type":"filter","target":["All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other"],"operation":"in","value":"All Students"}],"marker":{"color":"rgba(255,127,14,1)","line":{"color":"rgba(255,127,14,1)"}},"error_y":{"color":"rgba(255,127,14,1)"},"error_x":{"color":"rgba(255,127,14,1)"},"xaxis":"x","yaxis":"y","frame":null},{"x":[2014,2014,2014,2014,2014,2014,2015,2015,2015,2015,2015,2015,2016,2016,2016,2016,2016,2016,2017,2017,2017,2017,2017,2017,2018,2018,2018,2018,2018,2018,2019,2019,2019,2019,2019,2019,2020,2020,2020,2020,2020,2020],"y":[30.1,29.6,23.9,55.4,24.7,30.2,28.5,34.6,36.5,45.7,16.3,23.2,27.6,32.5,36.9,49.2,12.8,32.6,28.1,35.8,48.2,49.3,13.2,31.8,32.9,47.3,45.1,43.3,16.5,14.3,27.3,43.5,33.3,48.3,11.7,34.5,33,46.9,40.5,49.6,17.4,30.9],"name":"Hispanic","type":"scatter","mode":"lines","line":{"color":"#eaab21","width":4},"transforms":[{"type":"filter","target":["All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other"],"operation":"in","value":"All Students"}],"marker":{"color":"rgba(44,160,44,1)","line":{"color":"rgba(44,160,44,1)"}},"error_y":{"color":"rgba(44,160,44,1)"},"error_x":{"color":"rgba(44,160,44,1)"},"xaxis":"x","yaxis":"y","frame":null},{"x":[2014,2014,null,2014,2014,2014,2015,2015,2015,2015,2015,2015,2016,2016,2016,2016,2016,2016,2017,2017,2017,2017,2017,2017,2018,2018,2018,2018,2018,2018,2019,2019,2019,2019,2019,2019,2020,2020,2020,2020,2020,2020],"y":[68,50.9,null,87.6,43.8,85.7,65.8,56.1,57.9,90.5,38.8,61.9,65.2,63.2,55.6,81.7,36.1,71.4,67.4,61.7,59.1,85.5,42.7,85.7,74.4,77.3,57.1,89.4,44.6,87.5,73,72.9,76.9,87.2,54.7,75,64.4,62.2,40,84.3,37.5,76.5],"name":"Asian","type":"scatter","mode":"lines","line":{"color":"#a7bfd7","width":4},"transforms":[{"type":"filter","target":["All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other"],"operation":"in","value":"All Students"}],"marker":{"color":"rgba(214,39,40,1)","line":{"color":"rgba(214,39,40,1)"}},"error_y":{"color":"rgba(214,39,40,1)"},"error_x":{"color":"rgba(214,39,40,1)"},"xaxis":"x","yaxis":"y","frame":null}],"highlight":{"on":"plotly_click","persistent":false,"dynamic":false,"selectize":false,"opacityDim":0.2,"selected":{"opacity":1},"debounce":0},"shinyEvents":["plotly_hover","plotly_click","plotly_selected","plotly_relayout","plotly_brushed","plotly_brushing","plotly_clickannotation","plotly_doubleclick","plotly_deselect","plotly_afterplot","plotly_sunburstclick"],"base_url":"https://plot.ly"},"evals":[],"jsHooks":[]}</script>
+</div>
+</div>
 <div id="early-care-and-pre-k" class="section level1">
 <h1>Early Care and Pre-K</h1>
 <div id="cost-and-availability-of-childcare" class="section level2">
@@ -772,217 +1018,6 @@ trend_cc(feeding_america_t,
         FIPS_df = FIPS_df)</code></pre>
 <p><img src="index_files/figure-html/unnamed-chunk-8-1.png" width="672" /></p>
 </div>
-</div>
-</div>
-<div id="kindergarten-readiness" class="section level1">
-<h1>Kindergarten Readiness</h1>
-<p>Kindergarten readiness is an important indicator of whether children will succeed in the classroom. While the measure has limitations, it is a strong indicator of future student performance.</p>
-<p>Based on data from KySTATS in 2015, students who entered school ready for kindergarten were more likely to</p>
-<div id="by-student-zip-code" class="section level2">
-<h2>by Student Zip Code</h2>
-<p>This data was aquired through a data request to JCPS. Note that this data only includes parents who send their children to JCPS, so it’s not a reflection of all children in a zip code.</p>
-<p>The data shows wide disparities in the kindergarten readiness results</p>
-<pre class="r"><code># Ready in kready data
-kready_zip &lt;- readxl::read_excel(&quot;raw_data/Copy of 1920_Brigance Zip Code_Prior Settings TablesForORR.xlsx&quot;,
-                                 sheet = &quot;ZipCode3Years&quot;, 
-                                 range =&quot;B4:K38&quot;,
-                                 col_names = c(&quot;zip&quot;, paste0(c(&quot;num_&quot;, &quot;ready_&quot;, &quot;notready_&quot;),
-                                                             rep(2018:2020, each = 3))),
-                                 col_types = c(&quot;text&quot;, rep(&quot;numeric&quot;, 9)),
-                                 na = &quot;*&quot;)
-
-# Clean and organize data frame
-kready_zip %&lt;&gt;% 
-  pivot_longer(num_2018:notready_2020, names_to = c(&quot;var_type&quot;, &quot;year&quot;), names_sep = &quot;_&quot;) %&gt;%
-  filter(var_type != &quot;notready&quot;) %&gt;%
-  mutate(
-    var_type = case_when(var_type == &quot;num&quot; ~ &quot;population&quot;,
-                         var_type == &quot;ready&quot; ~ &quot;percent&quot;)) %&gt;%
-  transmute(
-    zip, year, var_type, 
-    kready = if_else(var_type == &quot;percent&quot;, value * 100, value))
-
-# Summarize data frame over three years due to unstable data
-kready_zip_sum &lt;- kready_zip %&gt;%
-  pivot_wider(names_from = var_type, values_from = kready) %&gt;%
-  group_by(zip) %&gt;%
-  filter(all(!is.na(percent))) %&gt;%
-  summarise(
-    percent = weighted.mean(percent, population),
-    population = sum(population),
-    .groups = &quot;drop&quot;) %&gt;%
-  rename(kready = percent)
-
-# Join data to map
-map_zip %&lt;&gt;% left_join(kready_zip_sum, by = &quot;zip&quot;)
-  
-ggplot(map_zip) + 
-  geom_sf(aes(fill = kready)) +
-  #scale_fill_manual(values = viridis::viridis(6, direction = -1), na.value = &quot;grey&quot;) +
-  viridis::scale_fill_viridis(na.value = &quot;grey&quot;, 
-                            name = &quot;Percent Ready&quot;) +
-  theme_bw(base_size = 22, base_family = &quot;Montserrat&quot;) +
-  theme(panel.grid = element_blank(),
-        axis.text = element_blank(),
-        axis.ticks = element_blank(),
-        axis.title = element_blank(),
-        panel.border = element_blank()) +
-  labs(title = &quot;JCPS Kindergarden Readiness by Student&#39;s Home Zip Code&quot;,
-       subtitle = &quot;Average for the school years 2017-2018, 2018-2019, and 2019-2020&quot;) +
-  theme(
-    panel.background = element_rect(fill = &quot;transparent&quot;, color = NA), # bg of the panel
-    plot.background = element_rect(fill = &quot;transparent&quot;, color = NA), # bg of the plot
-    legend.background = element_rect(fill = &quot;transparent&quot;, color = &quot;transparent&quot;), # get rid of legend bg
-    legend.box.background = element_rect(fill = &quot;transparent&quot;, color = &quot;transparent&quot;), # get rid of legend panel bg
-    legend.key = element_rect(fill = &quot;transparent&quot;,colour = NA))</code></pre>
-<p><img src="index_files/figure-html/kindergarten_readiness_data-1.png" width="672" /></p>
-</div>
-<div id="by-school-location" class="section level2">
-<h2>by School Location</h2>
-<p>This map shows kindergarten readiness results by school. Schools are shown by their student assignment area.</p>
-<pre class="r"><code>load(&quot;raw_data/kready_jc.RData&quot;)
-load(&quot;raw_data/map_elementary.RData&quot;)
-
-# Filter out 
-kready_jc_subset &lt;- kready_jc %&gt;%
-  filter(code != &quot;275&quot;, 
-         year == 2020, 
-         demographic == &quot;All Students&quot;,
-         prior_setting == &quot;All Students&quot;) %&gt;%
-  mutate(code = str_sub(code, 4, 6) %&gt;%
-                as.numeric)
-
-map_elementary %&lt;&gt;%
-  rename(
-    SCHOOL_NAME = SCHOOL_NAM,
-    LOCATION = LocNumber,
-    CLUSTER = ClusterNum)
-
-map_elementary %&lt;&gt;%
-  left_join(kready_jc_subset, by = c(&quot;LOCATION&quot; = &quot;code&quot;))
-
-ggplot(map_elementary) + 
-  geom_sf(aes(fill = kready)) +
-  #scale_fill_manual(values = viridis::viridis(6, direction = -1), na.value = &quot;grey&quot;) +
-  viridis::scale_fill_viridis(na.value = &quot;grey&quot;, 
-                            name = &quot;Percent Ready&quot;) +
-  theme_bw(base_size = 22, base_family = &quot;Montserrat&quot;) +
-  theme(panel.grid = element_blank(),
-        axis.text = element_blank(),
-        axis.ticks = element_blank(),
-        axis.title = element_blank(),
-        panel.border = element_blank()) +
-  labs(title = &quot;JCPS Kindergarden Readiness by School Location&quot;, 2020) +
-  theme(
-    panel.background = element_rect(fill = &quot;transparent&quot;, color = NA), # bg of the panel
-    plot.background = element_rect(fill = &quot;transparent&quot;, color = NA), # bg of the plot
-    legend.background = element_rect(fill = &quot;transparent&quot;, color = &quot;transparent&quot;), # get rid of legend bg
-    legend.box.background = element_rect(fill = &quot;transparent&quot;, color = &quot;transparent&quot;), # get rid of legend panel bg
-    legend.key = element_rect(fill = &quot;transparent&quot;,colour = NA))</code></pre>
-<p><img src="index_files/figure-html/clean_data-1.png" width="672" /></p>
-</div>
-<div id="by-prior-setting" class="section level2">
-<h2>by Prior Setting</h2>
-<p>The largest differences in kindergarten readiness are seen based on prior setting.</p>
-<p>Children who were in licensed childcare providers prior to entering school are most likely to be kindergarten ready, while children who stayed at home with a parent or guardian are least likely to be kindergarten ready.</p>
-<p>Children who were previously enrolled in Head Start, a State-funded preschool program, or were in another home setting, such as a private sitter or other family member, fall in the middle.</p>
-<pre class="r"><code>load(&quot;raw_data/kready_ky.RData&quot;)
-
-kready_louisville &lt;- kready_ky %&gt;%
-  filter(variable == &quot;lou&quot;,
-         sex == &quot;total&quot;,
-         race == &quot;total&quot;,
-         frl_status == &quot;total&quot;,
-         prior_setting %in% c(&quot;State-Funded&quot;, &quot;Head Start&quot;, &quot;Child Care&quot;, &quot;Home&quot;, &quot;Other&quot;))
-
-plt_by(kready_louisville,
-       prior_setting,
-       kready,
-       title_text = &quot;Kindergarten Readiness by Prior Setting&quot;,
-       remove_legend_title = T)</code></pre>
-<p><img src="index_files/figure-html/kreaady_prior_setting-1.png" width="672" /></p>
-</div>
-<div id="by-race" class="section level2">
-<h2>by Race</h2>
-<pre class="r"><code>kready_race &lt;- kready_ky %&gt;%
-  filter(variable == &quot;lou&quot;,
-         sex == &quot;total&quot;,
-         race %in% c(&quot;black&quot;, &quot;white&quot;),
-         frl_status == &quot;total&quot;,
-         prior_setting == &quot;All Students&quot;) %&gt;%
-  mutate(race = str_to_title(race))
-
-plt_by(kready_race,
-       race,
-       kready,
-       title_text = &quot;Kindergarten Readiness by Race&quot;)</code></pre>
-<p><img src="index_files/figure-html/kready_race-1.png" width="672" /></p>
-</div>
-<div id="by-race-and-prior-setting" class="section level2">
-<h2>By Race and Prior setting</h2>
-<pre class="r"><code>kready_race_plotly &lt;- kready_ky %&gt;%
-  filter(variable == &quot;lou&quot;,
-         sex == &quot;total&quot;,
-         race %in% c(&quot;black&quot;, &quot;white&quot;, &quot;hispanic&quot;, &quot;asian&quot;),
-         frl_status == &quot;total&quot;,
-         prior_setting %in% c(&quot;All Students&quot;, &quot;State Funded&quot;, &quot;Head Start&quot;, &quot;Child Care&quot;, &quot;Home&quot;, &quot;Other&quot;)) %&gt;%
-  mutate(race = str_to_title(race)) %&gt;%
-  pivot_wider(names_from = race, values_from = kready)
-
-trnfm_list &lt;- 
-  list(
-      list(
-        type = &#39;filter&#39;,
-        target = ~prior_setting,
-        operation = &#39;in&#39;,
-        value = unique(kready_race_plotly$prior_setting)[1]
-      ))
-
-plot_ly(kready_race_plotly) %&gt;%
-  # add_trace(x = ~year, y = ~Black_ChildCare, name = &quot;Black&quot;, type = &quot;scatter&quot;, mode = &quot;lines&quot;,
-  #           line = list(color = &#39;#d63631&#39;, width = 4), visible=&quot;legendonly&quot;) %&gt;%
-  # add_trace(x = ~year, y = ~White_ChildCare, name = &quot;White&quot;, type = &quot;scatter&quot;, mode = &quot;lines&quot;,
-  #           line = list(color = &#39;#323844&#39;, width = 4), visible=&quot;legendonly&quot;) %&gt;%
-  add_trace(x = ~year, y = ~Black, name = &quot;Black&quot;, type = &quot;scatter&quot;, mode = &quot;lines&quot;, 
-            line = list(color = &#39;#d63631&#39;, width = 4), transforms = trnfm_list) %&gt;%
-  add_trace(x = ~year, y = ~White, name = &quot;White&quot;, type = &quot;scatter&quot;, mode = &quot;lines&quot;, 
-            line = list(color = &#39;#323844&#39;, width = 4), transforms = trnfm_list) %&gt;%
-  add_trace(x = ~year, y = ~Hispanic, name = &quot;Hispanic&quot;, type = &quot;scatter&quot;, mode = &quot;lines&quot;, 
-            line = list(color = &#39;#eaab21&#39;, width = 4), transforms = trnfm_list) %&gt;%
-  add_trace(x = ~year, y = ~Asian, name = &quot;Asian&quot;, type = &quot;scatter&quot;, mode = &quot;lines&quot;, 
-            line = list(color = &#39;#a7bfd7&#39;, width = 4), transforms = trnfm_list) %&gt;%
-  # add_trace(x = ~year, y = ~Black_Home, name = &quot;Black_Home&quot;, type = &quot;scatter&quot;, mode = &quot;lines&quot;, 
-  #           line = list(color = &#39;#d63631&#39;, width = 4), showlegend=FALSE) %&gt;%
-  # add_trace(x = ~year, y = ~White_Home, name = &quot;White_Home&quot;, type = &quot;scatter&quot;, mode = &quot;lines&quot;, 
-  #           line = list(color = &#39;#323844&#39;, width = 4), showlegend=FALSE) %&gt;%
-  layout(title = &quot;Kindergerten Readiness by Race&quot;,
-         xaxis = list(title = &quot;Year&quot;),
-         yaxis = list(title = &quot;Percent Ready&quot;, range = c(0, 100)),
-         updatemenus = list(
-          list(
-            x = 1.25,
-            y = 0.75,
-            buttons = list(
-              list(method = &quot;restyle&quot;,
-                   args = list(&quot;transforms[0].value&quot;, unique(kready_race_plotly$prior_setting)[1]),
-                   label = unique(kready_race_plotly$prior_setting)[1]),
-              list(method = &quot;restyle&quot;,
-                  args = list(&quot;transforms[0].value&quot;, unique(kready_race_plotly$prior_setting)[2]),
-                  label = unique(kready_race_plotly$prior_setting)[2]),
-              list(method = &quot;restyle&quot;,
-                  args = list(&quot;transforms[0].value&quot;, unique(kready_race_plotly$prior_setting)[3]),
-                  label = unique(kready_race_plotly$prior_setting)[3]),
-              list(method = &quot;restyle&quot;,
-                  args = list(&quot;transforms[0].value&quot;, unique(kready_race_plotly$prior_setting)[4]),
-                  label = unique(kready_race_plotly$prior_setting)[4]),
-              list(method = &quot;restyle&quot;,
-                  args = list(&quot;transforms[0].value&quot;, unique(kready_race_plotly$prior_setting)[5]),
-                  label = unique(kready_race_plotly$prior_setting)[5]),
-                            list(method = &quot;restyle&quot;,
-                   args = list(&quot;transforms[0].value&quot;, unique(kready_race_plotly$prior_setting)[6]),
-                   label = unique(kready_race_plotly$prior_setting)[6])))))</code></pre>
-<div id="htmlwidget-f57b9f6166d52bb7e6c0" style="width:672px;height:480px;" class="plotly html-widget"></div>
-<script type="application/json" data-for="htmlwidget-f57b9f6166d52bb7e6c0">{"x":{"visdat":{"31944d912ade":["function () ","plotlyVisDat"]},"cur_data":"31944d912ade","attrs":{"31944d912ade":{"alpha_stroke":1,"sizes":[10,100],"spans":[1,20],"x":{},"y":{},"name":"Black","type":"scatter","mode":"lines","line":{"color":"#d63631","width":4},"transforms":[{"type":"filter","target":{},"operation":"in","value":"All Students"}],"inherit":true},"31944d912ade.1":{"alpha_stroke":1,"sizes":[10,100],"spans":[1,20],"x":{},"y":{},"name":"White","type":"scatter","mode":"lines","line":{"color":"#323844","width":4},"transforms":[{"type":"filter","target":{},"operation":"in","value":"All Students"}],"inherit":true},"31944d912ade.2":{"alpha_stroke":1,"sizes":[10,100],"spans":[1,20],"x":{},"y":{},"name":"Hispanic","type":"scatter","mode":"lines","line":{"color":"#eaab21","width":4},"transforms":[{"type":"filter","target":{},"operation":"in","value":"All Students"}],"inherit":true},"31944d912ade.3":{"alpha_stroke":1,"sizes":[10,100],"spans":[1,20],"x":{},"y":{},"name":"Asian","type":"scatter","mode":"lines","line":{"color":"#a7bfd7","width":4},"transforms":[{"type":"filter","target":{},"operation":"in","value":"All Students"}],"inherit":true}},"layout":{"margin":{"b":40,"l":60,"t":25,"r":10},"title":"Kindergerten Readiness by Race","xaxis":{"domain":[0,1],"automargin":true,"title":"Year"},"yaxis":{"domain":[0,1],"automargin":true,"title":"Percent Ready","range":[0,100]},"updatemenus":[{"x":1.25,"y":0.75,"buttons":[{"method":"restyle","args":["transforms[0].value","All Students"],"label":"All Students"},{"method":"restyle","args":["transforms[0].value","State Funded"],"label":"State Funded"},{"method":"restyle","args":["transforms[0].value","Head Start"],"label":"Head Start"},{"method":"restyle","args":["transforms[0].value","Child Care"],"label":"Child Care"},{"method":"restyle","args":["transforms[0].value","Home"],"label":"Home"},{"method":"restyle","args":["transforms[0].value","Other"],"label":"Other"}]}],"hovermode":"closest","showlegend":true},"source":"A","config":{"showSendToCloud":false},"data":[{"x":[2014,2014,2014,2014,2014,2014,2015,2015,2015,2015,2015,2015,2016,2016,2016,2016,2016,2016,2017,2017,2017,2017,2017,2017,2018,2018,2018,2018,2018,2018,2019,2019,2019,2019,2019,2019,2020,2020,2020,2020,2020,2020],"y":[46.9,50.2,52.7,58.3,28.1,49.2,48.8,53.2,56.9,55.8,26.8,52.8,42.6,48.6,56.4,48.1,24.6,45,50.5,59.8,61.4,55.5,28.8,51.2,53.8,65.5,63.4,58.5,27.6,64.1,51.2,63.1,63.6,58.1,30.2,55.3,49.5,62.2,61,58.3,28.5,47.6],"name":"Black","type":"scatter","mode":"lines","line":{"color":"#d63631","width":4},"transforms":[{"type":"filter","target":["All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other"],"operation":"in","value":"All Students"}],"marker":{"color":"rgba(31,119,180,1)","line":{"color":"rgba(31,119,180,1)"}},"error_y":{"color":"rgba(31,119,180,1)"},"error_x":{"color":"rgba(31,119,180,1)"},"xaxis":"x","yaxis":"y","frame":null},{"x":[2014,2014,2014,2014,2014,2014,2015,2015,2015,2015,2015,2015,2016,2016,2016,2016,2016,2016,2017,2017,2017,2017,2017,2017,2018,2018,2018,2018,2018,2018,2019,2019,2019,2019,2019,2019,2020,2020,2020,2020,2020,2020],"y":[60.3,53,42.2,80.2,42.1,70.6,58.5,47.3,50,76.3,39.2,65,54.9,49.3,41.4,73.7,32.1,61.3,56.1,50.2,61.8,75,29.8,65.9,58.8,52.9,51.1,77.9,35.2,63.7,58.1,59.6,50.7,75.2,33.4,62.5,57.3,55.3,53.3,74.2,33.8,64.3],"name":"White","type":"scatter","mode":"lines","line":{"color":"#323844","width":4},"transforms":[{"type":"filter","target":["All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other"],"operation":"in","value":"All Students"}],"marker":{"color":"rgba(255,127,14,1)","line":{"color":"rgba(255,127,14,1)"}},"error_y":{"color":"rgba(255,127,14,1)"},"error_x":{"color":"rgba(255,127,14,1)"},"xaxis":"x","yaxis":"y","frame":null},{"x":[2014,2014,2014,2014,2014,2014,2015,2015,2015,2015,2015,2015,2016,2016,2016,2016,2016,2016,2017,2017,2017,2017,2017,2017,2018,2018,2018,2018,2018,2018,2019,2019,2019,2019,2019,2019,2020,2020,2020,2020,2020,2020],"y":[30.1,29.6,23.9,55.4,24.7,30.2,28.5,34.6,36.5,45.7,16.3,23.2,27.6,32.5,36.9,49.2,12.8,32.6,28.1,35.8,48.2,49.3,13.2,31.8,32.9,47.3,45.1,43.3,16.5,14.3,27.3,43.5,33.3,48.3,11.7,34.5,33,46.9,40.5,49.6,17.4,30.9],"name":"Hispanic","type":"scatter","mode":"lines","line":{"color":"#eaab21","width":4},"transforms":[{"type":"filter","target":["All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other"],"operation":"in","value":"All Students"}],"marker":{"color":"rgba(44,160,44,1)","line":{"color":"rgba(44,160,44,1)"}},"error_y":{"color":"rgba(44,160,44,1)"},"error_x":{"color":"rgba(44,160,44,1)"},"xaxis":"x","yaxis":"y","frame":null},{"x":[2014,2014,null,2014,2014,2014,2015,2015,2015,2015,2015,2015,2016,2016,2016,2016,2016,2016,2017,2017,2017,2017,2017,2017,2018,2018,2018,2018,2018,2018,2019,2019,2019,2019,2019,2019,2020,2020,2020,2020,2020,2020],"y":[68,50.9,null,87.6,43.8,85.7,65.8,56.1,57.9,90.5,38.8,61.9,65.2,63.2,55.6,81.7,36.1,71.4,67.4,61.7,59.1,85.5,42.7,85.7,74.4,77.3,57.1,89.4,44.6,87.5,73,72.9,76.9,87.2,54.7,75,64.4,62.2,40,84.3,37.5,76.5],"name":"Asian","type":"scatter","mode":"lines","line":{"color":"#a7bfd7","width":4},"transforms":[{"type":"filter","target":["All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other"],"operation":"in","value":"All Students"}],"marker":{"color":"rgba(214,39,40,1)","line":{"color":"rgba(214,39,40,1)"}},"error_y":{"color":"rgba(214,39,40,1)"},"error_x":{"color":"rgba(214,39,40,1)"},"xaxis":"x","yaxis":"y","frame":null}],"highlight":{"on":"plotly_click","persistent":false,"dynamic":false,"selectize":false,"opacityDim":0.2,"selected":{"opacity":1},"debounce":0},"shinyEvents":["plotly_hover","plotly_click","plotly_selected","plotly_relayout","plotly_brushed","plotly_brushing","plotly_clickannotation","plotly_doubleclick","plotly_deselect","plotly_afterplot","plotly_sunburstclick"],"base_url":"https://plot.ly"},"evals":[],"jsHooks":[]}</script>
 </div>
 </div>
 
