@@ -295,7 +295,7 @@ div.tocify {
 <h1>Early Care and Pre-K</h1>
 <div id="cost-and-availability-of-childcare" class="section level2">
 <h2>Cost and Availability of Childcare</h2>
-<p>Data obtained from KyNECT. Pending Nate’s analysis.</p>
+<p>Median monthly cost of childcare providers in Louisville is $650. Pending verification of KYNECT data</p>
 <pre class="r"><code># Creates four data frames linked by license number (CLR)
 
 # provider_information: original file from the state.
@@ -400,30 +400,30 @@ provider_other %&lt;&gt;%
 <pre class="r"><code>read_and_prep &lt;- function(file_path) {
   df &lt;- readxl::read_excel(file_path) %&gt;%
     janitor::clean_names() %&gt;%
-  mutate(area = as.numeric(area),
+  mutate(MSA = as.numeric(area),
          h_median = as.numeric(h_median)) %&gt;%
-  filter(area %in% c(24340, 41180, 36420, 46140, 24860, 28940, 13820, 31140, 26900, 
+  filter(MSA %in% c(24340, 41180, 36420, 46140, 24860, 28940, 13820, 31140, 26900, 
                         28140, 36540, 24660, 16740, 18140, 17140, 34980, 32820) &amp; 
-           occ_title == &quot;Childcare Workers&quot;) %&gt;%
-  select(area, tot_emp, h_mean, a_mean, h_median, a_median) %&gt;%
+           occ_title %in% c(&quot;Childcare Workers&quot;, &quot;Child care workers&quot;)) %&gt;%
+  select(MSA, tot_emp, h_mean, a_mean, h_median, a_median) %&gt;%
   mutate(city = case_when(
-    area == 24340 ~ &quot;Grand Rapids&quot;,
-    area == 41180 ~ &quot;St. Louis&quot;,
-    area == 36420 ~ &quot;Oklahoma City&quot;,
-    area == 46140 ~ &quot;Tulsa&quot;,
-    area == 24860 ~ &quot;Greenville&quot;,
-    area == 28940 ~ &quot;Knoxville&quot;,
-    area == 13820 ~ &quot;Birmingham&quot;,
-    area == 31140 ~ &quot;Louisville&quot;,
-    area == 26900 ~ &quot;Indianapolis&quot;,
-    area == 28140 ~ &quot;Kansas City&quot;,
-    area == 36540 ~ &quot;Omaha&quot;,
-    area == 24660 ~ &quot;Greensboro&quot;,
-    area == 16740 ~ &quot;Charlotte&quot;,
-    area == 18140 ~ &quot;Columbus&quot;,
-    area == 17140 ~ &quot;Cincinnati&quot;,
-    area == 34980 ~ &quot;Nashville&quot;,
-    area == 32820 ~ &quot;Memphis&quot;,
+    MSA == 24340 ~ &quot;Grand Rapids&quot;,
+    MSA == 41180 ~ &quot;St. Louis&quot;,
+    MSA == 36420 ~ &quot;Oklahoma City&quot;,
+    MSA == 46140 ~ &quot;Tulsa&quot;,
+    MSA == 24860 ~ &quot;Greenville&quot;,
+    MSA == 28940 ~ &quot;Knoxville&quot;,
+    MSA == 13820 ~ &quot;Birmingham&quot;,
+    MSA == 31140 ~ &quot;Louisville&quot;,
+    MSA == 26900 ~ &quot;Indianapolis&quot;,
+    MSA == 28140 ~ &quot;Kansas City&quot;,
+    MSA == 36540 ~ &quot;Omaha&quot;,
+    MSA == 24660 ~ &quot;Greensboro&quot;,
+    MSA == 16740 ~ &quot;Charlotte&quot;,
+    MSA == 18140 ~ &quot;Columbus&quot;,
+    MSA == 17140 ~ &quot;Cincinnati&quot;,
+    MSA == 34980 ~ &quot;Nashville&quot;,
+    MSA == 32820 ~ &quot;Memphis&quot;,
     TRUE ~ NA_character_
   ))
     
@@ -434,13 +434,14 @@ return(df)
 df19 &lt;- read_and_prep(&quot;bls_data/MSA_M2019_dl.xlsx&quot;) %&gt;%
   mutate(year = 2019)
 
-ranking(rename(df19, MSA=area), 
+ranking(df19,
         &quot;h_median&quot;, 
         text_size = 2, 
         plot_title = &quot;Median Wages for Childcare Workers, 2019&quot;, 
         year = 2019,
         subtitle_text = &quot;2019&quot;, #font didn&#39;t really work here. Could play with text size more?
-        y_title = &quot;Dollars&quot;)</code></pre>
+        y_title = &quot;Dollars&quot;,
+        FIPS_df = FIPS_df)</code></pre>
 <p><img src="index_files/figure-html/unnamed-chunk-1-1.png" width="672" /></p>
 <pre class="r"><code>df18 &lt;- read_and_prep(&quot;bls_data/MSA_M2018_dl.xlsx&quot;) %&gt;%
   mutate(year = 2018)
@@ -477,11 +478,41 @@ df10 &lt;- read_and_prep(&quot;bls_data/MSA_M2010_dl_1.xls&quot;) %&gt;%
   bind_rows(read_and_prep(&quot;bls_data/MSA_M2010_dl_3.xls&quot;)) %&gt;%
   mutate(year = 2010)
 
-df_t &lt;- bind_rows(df19, df18, df17, df16, df15, df14, df13, df12, df11, df10)</code></pre>
+
+
+
+df09 &lt;- read_and_prep(&quot;bls_data/MSA_M2009_dl_1.xls&quot;) %&gt;%
+  bind_rows(read_and_prep(&quot;bls_data/MSA_M2009_dl_2.xls&quot;)) %&gt;%
+  bind_rows(read_and_prep(&quot;bls_data/MSA_M2009_dl_3.xls&quot;)) %&gt;%
+  mutate(year = 2009)
+
+df08 &lt;- read_and_prep(&quot;bls_data/MSA_M2008_dl_1.xls&quot;) %&gt;%
+  bind_rows(read_and_prep(&quot;bls_data/MSA_M2008_dl_2.xls&quot;)) %&gt;%
+  bind_rows(read_and_prep(&quot;bls_data/MSA_M2008_dl_3.xls&quot;)) %&gt;%
+  mutate(year = 2008)
+
+df07 &lt;- read_and_prep(&quot;bls_data/MSA_May2007_dl_1.xls&quot;) %&gt;%
+  bind_rows(read_and_prep(&quot;bls_data/MSA_May2007_dl_2.xls&quot;)) %&gt;%
+  bind_rows(read_and_prep(&quot;bls_data/MSA_May2007_dl_3.xls&quot;)) %&gt;%
+  mutate(year = 2007)
+
+df06 &lt;- read_and_prep(&quot;bls_data/MSA_may2006_dl_1.xls&quot;) %&gt;%
+  bind_rows(read_and_prep(&quot;bls_data/MSA_may2006_dl_2.xls&quot;)) %&gt;%
+  bind_rows(read_and_prep(&quot;bls_data/MSA_may2006_dl_3.xls&quot;)) %&gt;%
+  mutate(year = 2006)
+
+df05 &lt;- read_and_prep(&quot;bls_data/MSA_may2005_dl_1.xls&quot;) %&gt;%
+  bind_rows(read_and_prep(&quot;bls_data/MSA_may2005_dl_2.xls&quot;)) %&gt;%
+  bind_rows(read_and_prep(&quot;bls_data/MSA_may2005_dl_3.xls&quot;)) %&gt;%
+  mutate(year = 2005)
+
+#MSA codes all change in 2004
+
+df_t &lt;- bind_rows(df19, df18, df17, df16, df15, df14, df13, df12, df11, df10, df09, df08, df07, df06, df05)</code></pre>
 <pre class="r"><code>#inflate to 2019 dollars based on CPI
 df_cpi &lt;- tibble(
-  year = 2010:2019,
-  cpi_value = c(218.056, 224.939, 229.594, 232.957,
+  year = 2005:2019,
+  cpi_value = c(195.292, 201.592, 207.342, 215.303, 214.537, 218.056, 224.939, 229.594, 232.957,
                 236.736, 237.017, 240.007, 245.120,
                 251.107, 255.657)
 ) %&gt;%
@@ -491,24 +522,257 @@ df_t &lt;- left_join(df_t, df_cpi, by = &quot;year&quot;)
 
 df_t &lt;- df_t %&gt;%
   mutate(h_median = h_median * multiplier)</code></pre>
-<pre class="r"><code>trend_cc(df_t, &quot;h_median&quot;)</code></pre>
+<pre class="r"><code>trend_cc(df_t, 
+         &quot;h_median&quot;, 
+         plot_title = &quot;Median Hourly Wages for Childcare Workers&quot;,
+         y_title = &quot;Dollars&quot;)</code></pre>
 <p><img src="index_files/figure-html/unnamed-chunk-4-1.png" width="672" /></p>
-</div>
-<div id="head-start" class="section level2">
-<h2>Head Start</h2>
-<p>Have data from KYSTATS, pending analysis.</p>
 </div>
 </div>
 <div id="child-health" class="section level1">
 <h1>Child Health</h1>
 <div id="adverse-childhood-experiences" class="section level2">
 <h2>Adverse Childhood Experiences</h2>
-<p>Child data incoming from Sarojini. ETA Friday 2/12. Adult factors have been mapped to data sources.</p>
+<p>Adverse childhood experiences are potentially traumatic events that occur in childhood. If you would prefer to skip past this section, you can do so by clicking “Child Food Security” in the sidebar.</p>
+<p>Adverse Childhood Experiences (ACEs) include forms of abuse, neglect, and household dysfunction. Per the CDC, “ACEs can have lasting, negative effects on health, well-being, and opportunity. These experiences can increase the risks of injury, sexually transmitted infections, maternal and child health problems, teen pregnancy, involvement in sex trafficking, and a wide range of chronic diseases and leading causes of death such as cancer, diabetes, heart disease, and suicide.”</p>
+<p>Data is from the Kentucky BRFSS survey. We are currently following up to determine the validity of the data broken down by race.</p>
+<pre class="r"><code>ace_types &lt;- tibble(
+  category = c(rep(&quot;abuse&quot;, 3), rep(&quot;dysfunction&quot;, 6)),
+  type = c(&quot;physical_abuse&quot;, &quot;sexual_abuse&quot;, &quot;verbal_abuse&quot;,
+           &quot;incarcerated_hh_member&quot;, &quot;drug_problem&quot;, &quot;drinking_problem&quot;,
+           &quot;witness_domestic_violence&quot;, &quot;mentally_ill_hh_member&quot;, &quot;divorced_parents&quot;),
+  percent = c(12.5, 15.4, 28.2, 9.7, 16.9, 31.6, 20.5, 26.1, 41.8))
+
+ace_types %&lt;&gt;%
+  mutate(type = factor(type, 
+                       levels = c(&quot;incarcerated_hh_member&quot;, 
+                                  &quot;drug_problem&quot;,
+                                  &quot;drinking_problem&quot;,
+                                  &quot;witness_domestic_violence&quot;, 
+                                  &quot;mentally_ill_hh_member&quot;, 
+                                  &quot;divorced_parents&quot;,
+                                  &quot;physical_abuse&quot;, 
+                                  &quot;sexual_abuse&quot;, 
+                                  &quot;verbal_abuse&quot;),
+                       labels = c(&quot;Incarcerated household member&quot;, 
+                                  &quot;Drug problem in household&quot;,
+                                  &quot;Drinking problem in household&quot;,
+                                  &quot;Witnessed domestic violence&quot;, 
+                                  &quot;Mentally ill household member&quot;, 
+                                  &quot;Divorced Parents&quot;,
+                                  &quot;Physical abuse&quot;, 
+                                  &quot;Sexual abuse&quot;, 
+                                  &quot;Verbal abuse&quot;),
+                       ordered = TRUE))
+
+text_size = 2
+
+p &lt;- ggplot(ace_types, aes(type, percent))
+
+p = p + guides(fill = FALSE, color = FALSE)
+
+p &lt;- p +
+  geom_bar(stat = &quot;identity&quot;,
+           size = text_size) +
+  coord_flip() +
+  ggthemes::theme_tufte()
+
+p &lt;- p + theme(text = element_text(family = &quot;Montserrat&quot;),
+               plot.title = element_text(size = 14 * text_size, hjust = 0.5, margin = margin(b = 10, unit = &quot;pt&quot;)),
+               axis.text.y = element_text(hjust = 0,
+                                          size = 10 * text_size),
+               axis.title.x = element_text(size = 10 * text_size),
+               axis.title.y = element_text(size = 10 * text_size),
+               axis.ticks = element_blank(),
+               axis.text.x = element_text(hjust = 0,
+                                          size = 10 * text_size),
+               plot.caption = element_text(size = 5 * text_size, lineheight = 0.5))
+
+# p &lt;- p +
+#   labs(subtitle = subtitle_text) +
+#   theme(plot.subtitle = element_text(hjust = 0.5, size = 10 * text_size))
+
+# Add remaining text
+p &lt;- p + labs(title = &quot;Prevelance of ACEs among Louisville adults&quot;,
+              y = &quot;Percent&quot;,
+              x = &quot;&quot;,
+              caption = &quot;&quot;)
+
+p &lt;- p +
+  theme(
+    panel.background = element_rect(fill = &quot;transparent&quot;, color = NA), # bg of the panel
+    plot.background = element_rect(fill = &quot;transparent&quot;, color = NA), # bg of the plot
+    legend.background = element_rect(fill = &quot;transparent&quot;, color = &quot;transparent&quot;), # get rid of legend bg
+    legend.box.background = element_rect(fill = &quot;transparent&quot;, color = &quot;transparent&quot;), # get rid of legend panel bg
+    legend.key = element_rect(fill = &quot;transparent&quot;,colour = NA))
+
+p</code></pre>
+<p><img src="index_files/figure-html/unnamed-chunk-5-1.png" width="672" /></p>
+<pre class="r"><code>ace_prevelance &lt;- tibble(
+  number = c(0:4, &quot;5+&quot;),
+  percent = c(29, 20.8, 17.8, 10, 10, 12.4))
+
+text_size = 2
+
+p &lt;- ggplot(ace_prevelance, aes(number, percent))
+
+p = p + guides(fill = FALSE, color = FALSE)
+
+p &lt;- p +
+  geom_bar(stat = &quot;identity&quot;,
+           size = text_size) +
+  #coord_flip() +
+  ggthemes::theme_tufte()
+
+p &lt;- p + theme(text = element_text(family = &quot;Montserrat&quot;),
+               plot.title = element_text(size = 14 * text_size, hjust = 0.5, margin = margin(b = 10, unit = &quot;pt&quot;)),
+               axis.text.y = element_text(hjust = 0,
+                                          size = 10 * text_size),
+               axis.title.x = element_text(size = 10 * text_size),
+               axis.ticks = element_blank(),
+               axis.text.x = element_text(hjust = 0,
+                                          size = 10 * text_size),
+               plot.caption = element_text(size = 5 * text_size, lineheight = 0.5))
+
+# p &lt;- p +
+#   labs(subtitle = subtitle_text) +
+#   theme(plot.subtitle = element_text(hjust = 0.5, size = 10 * text_size))
+
+# Add remaining text
+p &lt;- p + labs(title = &quot;Percentage of Louisville adults by ACE score&quot;,
+              y = &quot;Percent&quot;,
+              x = &quot;Number of Adverse Childhood Experiences&quot;,
+              caption = &quot;&quot;)
+
+p &lt;- p +
+  theme(
+    panel.background = element_rect(fill = &quot;transparent&quot;, color = NA), # bg of the panel
+    plot.background = element_rect(fill = &quot;transparent&quot;, color = NA), # bg of the plot
+    legend.background = element_rect(fill = &quot;transparent&quot;, color = &quot;transparent&quot;), # get rid of legend bg
+    legend.box.background = element_rect(fill = &quot;transparent&quot;, color = &quot;transparent&quot;), # get rid of legend panel bg
+    legend.key = element_rect(fill = &quot;transparent&quot;,colour = NA))
+
+p</code></pre>
+<p><img src="index_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
+</div>
+<div id="child-food-security" class="section level2 tabset">
+<h2 class="tabset">Child Food Security</h2>
+<div id="trend" class="section level3">
+<h3>Trend</h3>
+<p>During the COVID-19 pandemic, child food insecurity is estimated to have increased by 40% in Louisville compared to 2018.</p>
+<pre class="r"><code># Read in food insecurity data from Mind the Meal Gap
+dinner_time &lt;- function(folder, starting_year){
+  
+  wd &lt;- getwd()
+  directory &lt;- paste0(wd, &quot;/&quot;, folder)
+  file_names &lt;- list.files(directory)
+  
+  # Read file for each year
+  for (y in starting_year:2018){
+    
+    # Create parameters to read in sheet based on the year
+    file_path &lt;- paste0(wd, &quot;/&quot;, folder, &quot;/&quot;, file_names[y-2008])
+    
+    sheet_name &lt;- case_when(
+      y %in% 2009:2010 ~ &quot;County&quot;,
+      y %in% 2011:2018 ~ paste0(y, &quot; County&quot;))
+    
+    skip_num &lt;- case_when(
+      y %in% 2009:2017 ~ 0,
+      y %in% 2018 ~ 1)
+    
+    df &lt;- readxl::read_xlsx(file_path, sheet = sheet_name, skip = skip_num)
+
+    # Create variables names based on the year
+    food_insecure_var &lt;- paste0(y, &quot; Food Insecurity Rate&quot;)
+    food_insecure_num_var &lt;- paste0(&quot;# of Food Insecure Persons in &quot;, y)
+    child_food_insecure_var &lt;- paste0(y, &quot; Child food insecurity rate&quot;)
+    child_food_insecure_num_var &lt;- paste0(&quot;# of Food Insecure Children in &quot;, y)
+    insecure_FRL &lt;- paste0(&quot;% food insecure children in HH w/ HH incomes below 185 FPL in &quot;, y)
+    insecure_non_FRL &lt;- paste0(&quot;% food insecure children in HH w/ HH incomes above 185 FPL in &quot;, y)
+
+    # Tidy data frame
+    df %&lt;&gt;%
+      transmute(
+        FIPS = str_pad(FIPS, 5, &quot;left&quot;, &quot;0&quot;),
+        year = y,
+        food_insecurity = .data[[food_insecure_var]],
+        food_insecurity_num = .data[[food_insecure_num_var]],
+        child_food_insecurity = .data[[child_food_insecure_var]],
+        child_food_insecurity_num = .data[[child_food_insecure_num_var]],
+        
+        low_threshold = `Low Threshold in state`,
+        low_threshold_type = `Low Threshold Type`,
+        high_threshold = `High Threshold in state`,
+        high_threshold_type = `High Threshold Type`,
+        under_low = `% FI ≤ Low Threshold`,
+        between = `% FI Btwn Thresholds`,
+        above = `% FI &gt; High Threshold`,
+        child_below_FRL = .data[[insecure_FRL]],
+        child_above_FRL = .data[[insecure_non_FRL]])
+
+    output &lt;- assign_row_join(output, df)
+  }
+  output
+}
+
+feeding_america &lt;- dinner_time(&quot;raw_data/Map the Meal Gap data&quot;, starting_year = 2012)
+feeding_america_covid &lt;- readxl::read_xlsx(&quot;raw_data/Projections data (revised Oct. 2020)/The Impact of Coronavirus on Food Insecurity Update 10.2020.xlsx&quot;, sheet = &quot;County&quot;)
+
+feeding_america_covid %&lt;&gt;%
+  transmute(
+    FIPS = str_pad(FIPS, 5, &quot;left&quot;, &quot;0&quot;),
+    year = 2020,
+    food_insecurity = `[Revised Projections – Oct 2020] \r\n2020 Food Insecurity  %`,
+    food_insecurity_num = `[Revised Projections – Oct 2020] \r\n2020 Food Insecurity #`,
+    child_food_insecurity = `[Revised Projections – Oct 2020] \r\n2020 Child Food Insecurity  %`,
+    child_food_insecurity_num = `[Revised Projections – Oct 2020] \r\n2020 Child Food Insecurity #`)
+
+feeding_america %&lt;&gt;%
+  bind_rows(feeding_america_covid)
+
+feeding_america %&lt;&gt;% 
+  pull_peers(FIPS_df = FIPS_df) %&gt;%
+  mutate(across(
+    c(food_insecurity, child_food_insecurity, under_low, between, above, child_below_FRL, child_above_FRL), 
+    ~ . * 100))
+
+feeding_america_1 &lt;- feeding_america %&gt;%
+  stl_merge(food_insecurity_num, child_food_insecurity_num, method = &quot;sum&quot;)
+
+feeding_america_2 &lt;- feeding_america %&gt;%
+  stl_merge(food_insecurity, under_low, between, above, method = &quot;mean&quot;, weight_var = &quot;food_insecurity_num&quot;)
+
+feeding_america_3 &lt;- feeding_america %&gt;%
+  stl_merge(child_food_insecurity, child_below_FRL, child_above_FRL, method = &quot;mean&quot;, weight_var = &quot;child_food_insecurity_num&quot;)
+
+feeding_america_t = left_join(feeding_america_1, feeding_america_2) %&gt;%
+  left_join(feeding_america_3)
+
+feeding_america_t %&lt;&gt;%
+  mutate(pct_above_frl = child_above_FRL * child_food_insecurity / 100,
+         pct_below_frl = (100 - child_above_FRL) * child_food_insecurity / 100)
+
+trend_cc(feeding_america_t,
+         &quot;child_food_insecurity&quot;, 
+         plot_title = &quot;Child Food Insecurity&quot;,
+         y_title = &quot;Percent&quot;,
+         xmin = 2014, xmax = 2020)</code></pre>
+<p><img src="index_files/figure-html/unnamed-chunk-7-1.png" width="672" /></p>
+</div>
+<div id="ranking" class="section level3">
+<h3>Ranking</h3>
+<p>While Louisville is toward the middle of its peer cities, between 1 in 5 and 1 in 4 children is food insecure.</p>
+<pre class="r"><code>ranking(feeding_america_t, 
+        &quot;child_food_insecurity&quot;,
+        plot_title = &quot;Child Food Insecurity, October 2020&quot;,
+        year = 2020,
+        order = &quot;Ascending&quot;,
+        text_size = 2,
+        FIPS_df = FIPS_df)</code></pre>
+<p><img src="index_files/figure-html/unnamed-chunk-8-1.png" width="672" /></p>
 </div>
 </div>
-<div id="child-food-security" class="section level1">
-<h1>Child Food Security</h1>
-<p>Data incoming from Feeding America</p>
 </div>
 <div id="kindergarten-readiness" class="section level1">
 <h1>Kindergarten Readiness</h1>
@@ -717,8 +981,8 @@ plot_ly(kready_race_plotly) %&gt;%
                             list(method = &quot;restyle&quot;,
                    args = list(&quot;transforms[0].value&quot;, unique(kready_race_plotly$prior_setting)[6]),
                    label = unique(kready_race_plotly$prior_setting)[6])))))</code></pre>
-<div id="htmlwidget-c1f1390cf8722bb68ba1" style="width:672px;height:480px;" class="plotly html-widget"></div>
-<script type="application/json" data-for="htmlwidget-c1f1390cf8722bb68ba1">{"x":{"visdat":{"5fbc5f615311":["function () ","plotlyVisDat"]},"cur_data":"5fbc5f615311","attrs":{"5fbc5f615311":{"alpha_stroke":1,"sizes":[10,100],"spans":[1,20],"x":{},"y":{},"name":"Black","type":"scatter","mode":"lines","line":{"color":"#d63631","width":4},"transforms":[{"type":"filter","target":{},"operation":"in","value":"All Students"}],"inherit":true},"5fbc5f615311.1":{"alpha_stroke":1,"sizes":[10,100],"spans":[1,20],"x":{},"y":{},"name":"White","type":"scatter","mode":"lines","line":{"color":"#323844","width":4},"transforms":[{"type":"filter","target":{},"operation":"in","value":"All Students"}],"inherit":true},"5fbc5f615311.2":{"alpha_stroke":1,"sizes":[10,100],"spans":[1,20],"x":{},"y":{},"name":"Hispanic","type":"scatter","mode":"lines","line":{"color":"#eaab21","width":4},"transforms":[{"type":"filter","target":{},"operation":"in","value":"All Students"}],"inherit":true},"5fbc5f615311.3":{"alpha_stroke":1,"sizes":[10,100],"spans":[1,20],"x":{},"y":{},"name":"Asian","type":"scatter","mode":"lines","line":{"color":"#a7bfd7","width":4},"transforms":[{"type":"filter","target":{},"operation":"in","value":"All Students"}],"inherit":true}},"layout":{"margin":{"b":40,"l":60,"t":25,"r":10},"title":"Kindergerten Readiness by Race","xaxis":{"domain":[0,1],"automargin":true,"title":"Year"},"yaxis":{"domain":[0,1],"automargin":true,"title":"Percent Ready","range":[0,100]},"updatemenus":[{"x":1.25,"y":0.75,"buttons":[{"method":"restyle","args":["transforms[0].value","All Students"],"label":"All Students"},{"method":"restyle","args":["transforms[0].value","State Funded"],"label":"State Funded"},{"method":"restyle","args":["transforms[0].value","Head Start"],"label":"Head Start"},{"method":"restyle","args":["transforms[0].value","Child Care"],"label":"Child Care"},{"method":"restyle","args":["transforms[0].value","Home"],"label":"Home"},{"method":"restyle","args":["transforms[0].value","Other"],"label":"Other"}]}],"hovermode":"closest","showlegend":true},"source":"A","config":{"showSendToCloud":false},"data":[{"x":[2014,2014,2014,2014,2014,2014,2015,2015,2015,2015,2015,2015,2016,2016,2016,2016,2016,2016,2017,2017,2017,2017,2017,2017,2018,2018,2018,2018,2018,2018,2019,2019,2019,2019,2019,2019,2020,2020,2020,2020,2020,2020],"y":[46.9,50.2,52.7,58.3,28.1,49.2,48.8,53.2,56.9,55.8,26.8,52.8,42.6,48.6,56.4,48.1,24.6,45,50.5,59.8,61.4,55.5,28.8,51.2,53.8,65.5,63.4,58.5,27.6,64.1,51.2,63.1,63.6,58.1,30.2,55.3,49.5,62.2,61,58.3,28.5,47.6],"name":"Black","type":"scatter","mode":"lines","line":{"color":"#d63631","width":4},"transforms":[{"type":"filter","target":["All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other"],"operation":"in","value":"All Students"}],"marker":{"color":"rgba(31,119,180,1)","line":{"color":"rgba(31,119,180,1)"}},"error_y":{"color":"rgba(31,119,180,1)"},"error_x":{"color":"rgba(31,119,180,1)"},"xaxis":"x","yaxis":"y","frame":null},{"x":[2014,2014,2014,2014,2014,2014,2015,2015,2015,2015,2015,2015,2016,2016,2016,2016,2016,2016,2017,2017,2017,2017,2017,2017,2018,2018,2018,2018,2018,2018,2019,2019,2019,2019,2019,2019,2020,2020,2020,2020,2020,2020],"y":[60.3,53,42.2,80.2,42.1,70.6,58.5,47.3,50,76.3,39.2,65,54.9,49.3,41.4,73.7,32.1,61.3,56.1,50.2,61.8,75,29.8,65.9,58.8,52.9,51.1,77.9,35.2,63.7,58.1,59.6,50.7,75.2,33.4,62.5,57.3,55.3,53.3,74.2,33.8,64.3],"name":"White","type":"scatter","mode":"lines","line":{"color":"#323844","width":4},"transforms":[{"type":"filter","target":["All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other"],"operation":"in","value":"All Students"}],"marker":{"color":"rgba(255,127,14,1)","line":{"color":"rgba(255,127,14,1)"}},"error_y":{"color":"rgba(255,127,14,1)"},"error_x":{"color":"rgba(255,127,14,1)"},"xaxis":"x","yaxis":"y","frame":null},{"x":[2014,2014,2014,2014,2014,2014,2015,2015,2015,2015,2015,2015,2016,2016,2016,2016,2016,2016,2017,2017,2017,2017,2017,2017,2018,2018,2018,2018,2018,2018,2019,2019,2019,2019,2019,2019,2020,2020,2020,2020,2020,2020],"y":[30.1,29.6,23.9,55.4,24.7,30.2,28.5,34.6,36.5,45.7,16.3,23.2,27.6,32.5,36.9,49.2,12.8,32.6,28.1,35.8,48.2,49.3,13.2,31.8,32.9,47.3,45.1,43.3,16.5,14.3,27.3,43.5,33.3,48.3,11.7,34.5,33,46.9,40.5,49.6,17.4,30.9],"name":"Hispanic","type":"scatter","mode":"lines","line":{"color":"#eaab21","width":4},"transforms":[{"type":"filter","target":["All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other"],"operation":"in","value":"All Students"}],"marker":{"color":"rgba(44,160,44,1)","line":{"color":"rgba(44,160,44,1)"}},"error_y":{"color":"rgba(44,160,44,1)"},"error_x":{"color":"rgba(44,160,44,1)"},"xaxis":"x","yaxis":"y","frame":null},{"x":[2014,2014,null,2014,2014,2014,2015,2015,2015,2015,2015,2015,2016,2016,2016,2016,2016,2016,2017,2017,2017,2017,2017,2017,2018,2018,2018,2018,2018,2018,2019,2019,2019,2019,2019,2019,2020,2020,2020,2020,2020,2020],"y":[68,50.9,null,87.6,43.8,85.7,65.8,56.1,57.9,90.5,38.8,61.9,65.2,63.2,55.6,81.7,36.1,71.4,67.4,61.7,59.1,85.5,42.7,85.7,74.4,77.3,57.1,89.4,44.6,87.5,73,72.9,76.9,87.2,54.7,75,64.4,62.2,40,84.3,37.5,76.5],"name":"Asian","type":"scatter","mode":"lines","line":{"color":"#a7bfd7","width":4},"transforms":[{"type":"filter","target":["All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other"],"operation":"in","value":"All Students"}],"marker":{"color":"rgba(214,39,40,1)","line":{"color":"rgba(214,39,40,1)"}},"error_y":{"color":"rgba(214,39,40,1)"},"error_x":{"color":"rgba(214,39,40,1)"},"xaxis":"x","yaxis":"y","frame":null}],"highlight":{"on":"plotly_click","persistent":false,"dynamic":false,"selectize":false,"opacityDim":0.2,"selected":{"opacity":1},"debounce":0},"shinyEvents":["plotly_hover","plotly_click","plotly_selected","plotly_relayout","plotly_brushed","plotly_brushing","plotly_clickannotation","plotly_doubleclick","plotly_deselect","plotly_afterplot","plotly_sunburstclick"],"base_url":"https://plot.ly"},"evals":[],"jsHooks":[]}</script>
+<div id="htmlwidget-f57b9f6166d52bb7e6c0" style="width:672px;height:480px;" class="plotly html-widget"></div>
+<script type="application/json" data-for="htmlwidget-f57b9f6166d52bb7e6c0">{"x":{"visdat":{"31944d912ade":["function () ","plotlyVisDat"]},"cur_data":"31944d912ade","attrs":{"31944d912ade":{"alpha_stroke":1,"sizes":[10,100],"spans":[1,20],"x":{},"y":{},"name":"Black","type":"scatter","mode":"lines","line":{"color":"#d63631","width":4},"transforms":[{"type":"filter","target":{},"operation":"in","value":"All Students"}],"inherit":true},"31944d912ade.1":{"alpha_stroke":1,"sizes":[10,100],"spans":[1,20],"x":{},"y":{},"name":"White","type":"scatter","mode":"lines","line":{"color":"#323844","width":4},"transforms":[{"type":"filter","target":{},"operation":"in","value":"All Students"}],"inherit":true},"31944d912ade.2":{"alpha_stroke":1,"sizes":[10,100],"spans":[1,20],"x":{},"y":{},"name":"Hispanic","type":"scatter","mode":"lines","line":{"color":"#eaab21","width":4},"transforms":[{"type":"filter","target":{},"operation":"in","value":"All Students"}],"inherit":true},"31944d912ade.3":{"alpha_stroke":1,"sizes":[10,100],"spans":[1,20],"x":{},"y":{},"name":"Asian","type":"scatter","mode":"lines","line":{"color":"#a7bfd7","width":4},"transforms":[{"type":"filter","target":{},"operation":"in","value":"All Students"}],"inherit":true}},"layout":{"margin":{"b":40,"l":60,"t":25,"r":10},"title":"Kindergerten Readiness by Race","xaxis":{"domain":[0,1],"automargin":true,"title":"Year"},"yaxis":{"domain":[0,1],"automargin":true,"title":"Percent Ready","range":[0,100]},"updatemenus":[{"x":1.25,"y":0.75,"buttons":[{"method":"restyle","args":["transforms[0].value","All Students"],"label":"All Students"},{"method":"restyle","args":["transforms[0].value","State Funded"],"label":"State Funded"},{"method":"restyle","args":["transforms[0].value","Head Start"],"label":"Head Start"},{"method":"restyle","args":["transforms[0].value","Child Care"],"label":"Child Care"},{"method":"restyle","args":["transforms[0].value","Home"],"label":"Home"},{"method":"restyle","args":["transforms[0].value","Other"],"label":"Other"}]}],"hovermode":"closest","showlegend":true},"source":"A","config":{"showSendToCloud":false},"data":[{"x":[2014,2014,2014,2014,2014,2014,2015,2015,2015,2015,2015,2015,2016,2016,2016,2016,2016,2016,2017,2017,2017,2017,2017,2017,2018,2018,2018,2018,2018,2018,2019,2019,2019,2019,2019,2019,2020,2020,2020,2020,2020,2020],"y":[46.9,50.2,52.7,58.3,28.1,49.2,48.8,53.2,56.9,55.8,26.8,52.8,42.6,48.6,56.4,48.1,24.6,45,50.5,59.8,61.4,55.5,28.8,51.2,53.8,65.5,63.4,58.5,27.6,64.1,51.2,63.1,63.6,58.1,30.2,55.3,49.5,62.2,61,58.3,28.5,47.6],"name":"Black","type":"scatter","mode":"lines","line":{"color":"#d63631","width":4},"transforms":[{"type":"filter","target":["All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other"],"operation":"in","value":"All Students"}],"marker":{"color":"rgba(31,119,180,1)","line":{"color":"rgba(31,119,180,1)"}},"error_y":{"color":"rgba(31,119,180,1)"},"error_x":{"color":"rgba(31,119,180,1)"},"xaxis":"x","yaxis":"y","frame":null},{"x":[2014,2014,2014,2014,2014,2014,2015,2015,2015,2015,2015,2015,2016,2016,2016,2016,2016,2016,2017,2017,2017,2017,2017,2017,2018,2018,2018,2018,2018,2018,2019,2019,2019,2019,2019,2019,2020,2020,2020,2020,2020,2020],"y":[60.3,53,42.2,80.2,42.1,70.6,58.5,47.3,50,76.3,39.2,65,54.9,49.3,41.4,73.7,32.1,61.3,56.1,50.2,61.8,75,29.8,65.9,58.8,52.9,51.1,77.9,35.2,63.7,58.1,59.6,50.7,75.2,33.4,62.5,57.3,55.3,53.3,74.2,33.8,64.3],"name":"White","type":"scatter","mode":"lines","line":{"color":"#323844","width":4},"transforms":[{"type":"filter","target":["All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other"],"operation":"in","value":"All Students"}],"marker":{"color":"rgba(255,127,14,1)","line":{"color":"rgba(255,127,14,1)"}},"error_y":{"color":"rgba(255,127,14,1)"},"error_x":{"color":"rgba(255,127,14,1)"},"xaxis":"x","yaxis":"y","frame":null},{"x":[2014,2014,2014,2014,2014,2014,2015,2015,2015,2015,2015,2015,2016,2016,2016,2016,2016,2016,2017,2017,2017,2017,2017,2017,2018,2018,2018,2018,2018,2018,2019,2019,2019,2019,2019,2019,2020,2020,2020,2020,2020,2020],"y":[30.1,29.6,23.9,55.4,24.7,30.2,28.5,34.6,36.5,45.7,16.3,23.2,27.6,32.5,36.9,49.2,12.8,32.6,28.1,35.8,48.2,49.3,13.2,31.8,32.9,47.3,45.1,43.3,16.5,14.3,27.3,43.5,33.3,48.3,11.7,34.5,33,46.9,40.5,49.6,17.4,30.9],"name":"Hispanic","type":"scatter","mode":"lines","line":{"color":"#eaab21","width":4},"transforms":[{"type":"filter","target":["All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other"],"operation":"in","value":"All Students"}],"marker":{"color":"rgba(44,160,44,1)","line":{"color":"rgba(44,160,44,1)"}},"error_y":{"color":"rgba(44,160,44,1)"},"error_x":{"color":"rgba(44,160,44,1)"},"xaxis":"x","yaxis":"y","frame":null},{"x":[2014,2014,null,2014,2014,2014,2015,2015,2015,2015,2015,2015,2016,2016,2016,2016,2016,2016,2017,2017,2017,2017,2017,2017,2018,2018,2018,2018,2018,2018,2019,2019,2019,2019,2019,2019,2020,2020,2020,2020,2020,2020],"y":[68,50.9,null,87.6,43.8,85.7,65.8,56.1,57.9,90.5,38.8,61.9,65.2,63.2,55.6,81.7,36.1,71.4,67.4,61.7,59.1,85.5,42.7,85.7,74.4,77.3,57.1,89.4,44.6,87.5,73,72.9,76.9,87.2,54.7,75,64.4,62.2,40,84.3,37.5,76.5],"name":"Asian","type":"scatter","mode":"lines","line":{"color":"#a7bfd7","width":4},"transforms":[{"type":"filter","target":["All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other","All Students","State Funded","Head Start","Child Care","Home","Other"],"operation":"in","value":"All Students"}],"marker":{"color":"rgba(214,39,40,1)","line":{"color":"rgba(214,39,40,1)"}},"error_y":{"color":"rgba(214,39,40,1)"},"error_x":{"color":"rgba(214,39,40,1)"},"xaxis":"x","yaxis":"y","frame":null}],"highlight":{"on":"plotly_click","persistent":false,"dynamic":false,"selectize":false,"opacityDim":0.2,"selected":{"opacity":1},"debounce":0},"shinyEvents":["plotly_hover","plotly_click","plotly_selected","plotly_relayout","plotly_brushed","plotly_brushing","plotly_clickannotation","plotly_doubleclick","plotly_deselect","plotly_afterplot","plotly_sunburstclick"],"base_url":"https://plot.ly"},"evals":[],"jsHooks":[]}</script>
 </div>
 </div>
 
