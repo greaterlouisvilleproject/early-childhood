@@ -30,7 +30,7 @@ assign_col_join <- function(df_1, df_2, by){
   })
 }
 
-pull_peers <- function(df, add_info = F, subset_to_peers = T, geog = "", additional_geogs = ""){
+pull_peers <- function(df, add_info = F, subset_to_peers = T, geog = "", additional_geogs = "", FIPS_df){
 
   # If no geography provided, use MSA column. If no MSA column, use FIPS column.
   if (geog == ""){
@@ -146,7 +146,7 @@ ranking <- function(df, var, plot_title = "",
                     y_title = "Percent", caption_text = "", subtitle_text = "",
                     bar_label = TRUE, sigfig = 3, accuracy = 0.1,
                     label_function, alternate_text = NULL,
-                    ranking_colors = TRUE, text_size){
+                    ranking_colors = TRUE, text_size, FIPS_df){
 
   # Copy variable var to a new column for use with the '$' operator
   var <- dplyr:::tbl_at_vars(df, vars(!!enquo(var)))
@@ -166,7 +166,7 @@ ranking <- function(df, var, plot_title = "",
   # Add peer data if not already present
    if ("city" %not_in% names(df)) {
      df %<>%
-       pull_peers(add_info = T) %>%
+       pull_peers(add_info = T, FIPS_df = FIPS_df) %>%
        filter(current == 1)
    }
 
@@ -201,7 +201,8 @@ ranking <- function(df, var, plot_title = "",
     color_values <- "#f58021"
     color_names <- "blue"
   }
-  if (order %in% c("descending", "Descending")) color_values = rev(color_values)
+  #if (order %in% c("descending", "Descending")) color_values = rev(color_values)
+  color_values = rev(color_values)
   # Create numeric labels
   # Create numeric labels
   if (!missing(label_function)) {

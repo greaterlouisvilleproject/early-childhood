@@ -42,387 +42,11 @@ source("helper_functions.R")
 load("raw_data/glptools_exports.RData")
 ```
 
-# Early Care and Pre-K
-
-## Cost and Availability of Childcare
-
-Data obtained from KyNECT. Pending Nate's analysis.
-
-```{r childcare_provider_data}
-# Creates four data frames linked by license number (CLR)
-
-# provider_information: original file from the state.
-#    includes provider name, address, and several other fields.
-
-# provider_hours: includes open days and hours
-
-# provider_cost: includes program offerings and cost
-
-# provider_other: includes other available info. 
-#    Might just duplicate fields from program_information, though.
-
-# Read in provider information (county, name, address, etc.)
-provider_information <- readxl::read_xlsx("raw_data/Chilcare Provider Download.xlsx",
-                                          skip = 2)
-
-# Subset to Jefferson County and rename license column for ease of use
-provider_information %<>% 
-  filter(County == "JEFFERSON") %>%
-  rename(CLR = `CLR#`)
-    
-# Read in provider data collected from KYnect 
-provider_data <- read_csv("raw_data/Childcare Provider Cost Data.csv",
-                          col_names = c("CLR", "Day", "Time", "Services", "FullTime", "PartTime", "Other"))
-
-# Check that no data is missing a license number - PASSED
-# missing_CLR <- provider_data %>%
-#   filter(is.na(CLR)) %>%
-#   filter(!is.na(Day) | !is.na(Time) | !is.na(Services) |
-#            !is.na(FullTime) | !is.na(PartTime) | !is.na(Other))
-# 
-# # Check that the list of license numbers are identical - PASSED
-# check_data1 <- mean(provider_information$CLR %in% provider_data$CLR) + 
-#                mean(provider_data$CLR %in% provider_information$CLR)
-
-# Check values and number of each variable
-# table(provider_data$Day) # good, 1 provider removed from listing
-# table(provider_data$Time) # good
-# table(provider_data$Services) # good
-# table(provider_data$FullTime) # good
-# table(test$PartTime) # often contains data for "Other"
-# table(provider_data$Other) # good
-# table(str_remove(provider_data$Other, "\\d*")) # good
-
-# Filter out rows without license numbers (used to make data entry easier)
-# Remove C6739, which closed between the creation of the provider registry and data collection 
-provider_data %<>%
-  filter(!is.na(CLR), 
-         CLR != "C6739")
-
-# The data for the "Other" column is often located in the PartTime column.
-# Group by license and determine whether the number of children is in the PartTime column. (should be in Other)
-# If so, move the data from the PartTime column to the Other column for that provider.
-provider_data %<>%
-  group_by(CLR) %>%
-  mutate(move_PartTime = if_else(any(str_detect(PartTime, "Children")), T, F),
-         move_PartTime = if_else(is.na(move_PartTime), F, move_PartTime)) %>%
-  mutate(Other = if_else(move_PartTime, PartTime, Other),
-         PartTime = if_else(move_PartTime, NA_character_, PartTime)) %>%
-  ungroup() %>%
-  select(-move_PartTime)
-
-# Hours data
-# Clean by filtering data to days of the week
-provider_hours <- provider_data %>%
-  select(CLR, Day, Time) %>%
-  filter(Day %in% c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
-
-# Cost data
-# Multiple offerings for each age-group are labeled with numbers (e.g. Toddler 1, Toddler 2). Remove.
-# Clean by filtering data to type of service (infant, toddler, preschool, school age)
-# Keep distinct (Removes multiple oferrings for the same age group with same prices)
-provider_cost <- provider_data %>%
-  select(CLR, Services, FullTime, PartTime) %>%
-  mutate(Services = str_remove(Services, " \\d")) %>%
-  filter(Services %in% c("Infant", "Toddler", "Preschool", "School Age")) %>%
-  distinct()
-
-# View number of different-cost options within each age group
-# provider_cost %>% group_by(CLR, Services) %>% summarise(n = n()) %>% pull(n) %>% table()
-
-# Other data
-provider_other <- provider_data %>%
-  select(CLR, Other)
-
-# Column contains data labels/headers followed by data
-# Copy the data to a new column and shift it up one row to create key-value pairs 
-provider_other$header <- provider_other$Other
-provider_other$data <- c(provider_other$Other[2:nrow(provider_other)], NA_character_)
-
-# Filter the data to rows where the header is in the header column. (Remove value-key pairs.)
-# Spread the data across columns
-provider_other %<>%
-  select(-Other) %>%
-  filter(header %in% c("Capacity", "CCCAP Subsidy", "Acceditations", "Food Permit", "Transportation")) %>%
-  pivot_wider(names_from = header, values_from = data) %>%
-  mutate(
-    Capacity = str_remove(Capacity, " Children") %>% as.numeric)
-
-```
-
-## Childcare Workers compensation
-
-```{r}
-read_and_prep <- function(file_path) {
-  df <- readxl::read_excel(file_path) %>%
-    janitor::clean_names() %>%
-  mutate(MSA = as.numeric(area),
-         h_median = as.numeric(h_median)) %>%
-  filter(MSA %in% c(24340, 41180, 36420, 46140, 24860, 28940, 13820, 31140, 26900, 
-                        28140, 36540, 24660, 16740, 18140, 17140, 34980, 32820) & 
-           occ_title %in% c("Childcare Workers", "Child care workers")) %>%
-  select(MSA, tot_emp, h_mean, a_mean, h_median, a_median) %>%
-  mutate(city = case_when(
-    MSA == 24340 ~ "Grand Rapids",
-    MSA == 41180 ~ "St. Louis",
-    MSA == 36420 ~ "Oklahoma City",
-    MSA == 46140 ~ "Tulsa",
-    MSA == 24860 ~ "Greenville",
-    MSA == 28940 ~ "Knoxville",
-    MSA == 13820 ~ "Birmingham",
-    MSA == 31140 ~ "Louisville",
-    MSA == 26900 ~ "Indianapolis",
-    MSA == 28140 ~ "Kansas City",
-    MSA == 36540 ~ "Omaha",
-    MSA == 24660 ~ "Greensboro",
-    MSA == 16740 ~ "Charlotte",
-    MSA == 18140 ~ "Columbus",
-    MSA == 17140 ~ "Cincinnati",
-    MSA == 34980 ~ "Nashville",
-    MSA == 32820 ~ "Memphis",
-    TRUE ~ NA_character_
-  ))
-    
-return(df)
-  
-}
-
-df19 <- read_and_prep("bls_data/MSA_M2019_dl.xlsx") %>%
-  mutate(year = 2019)
-
-ranking(df19,
-        "h_median", 
-        text_size = 2, 
-        plot_title = "Median Wages for Childcare Workers, 2019", 
-        year = 2019,
-        subtitle_text = "2019", #font didn't really work here. Could play with text size more?
-        y_title = "Dollars")
-```
-
-```{r}
-df18 <- read_and_prep("bls_data/MSA_M2018_dl.xlsx") %>%
-  mutate(year = 2018)
-
-df17 <- read_and_prep("bls_data/MSA_M2017_dl.xlsx") %>%
-  mutate(year = 2017)
-
-df16 <- read_and_prep("bls_data/MSA_M2016_dl.xlsx") %>%
-  mutate(year = 2016)
-
-df15 <- read_and_prep("bls_data/MSA_M2015_dl.xlsx") %>%
-  mutate(year = 2015)
-
-df14 <- read_and_prep("bls_data/MSA_M2014_dl.xlsx") %>%
-  mutate(year = 2014)
-
-df13 <- read_and_prep("bls_data/MSA_M2013_dl_1_AK_IN.xls") %>%
-  bind_rows(read_and_prep("bls_data/MSA_M2013_dl_2_KS_NY.xls")) %>%
-  bind_rows(read_and_prep("bls_data/MSA_M2013_dl_3_OH_WY.xls")) %>%
-  mutate(year = 2013)
-
-df12 <- read_and_prep("bls_data/MSA_M2012_dl_1_AK_IN.xls") %>%
-  bind_rows(read_and_prep("bls_data/MSA_M2012_dl_2_KS_NY.xls")) %>%
-  bind_rows(read_and_prep("bls_data/MSA_M2012_dl_3_OH_WY.xls")) %>%
-  mutate(year = 2012)
-
-df11 <- read_and_prep("bls_data/MSA_M2011_dl_1_AK_IN.xls") %>%
-  bind_rows(read_and_prep("bls_data/MSA_M2011_dl_2_KS_NY.xls")) %>%
-  bind_rows(read_and_prep("bls_data/MSA_M2011_dl_3_OH_WY.xls")) %>%
-  mutate(year = 2011)
-
-df10 <- read_and_prep("bls_data/MSA_M2010_dl_1.xls") %>%
-  bind_rows(read_and_prep("bls_data/MSA_M2010_dl_2.xls")) %>%
-  bind_rows(read_and_prep("bls_data/MSA_M2010_dl_3.xls")) %>%
-  mutate(year = 2010)
-
-
-
-
-df09 <- read_and_prep("bls_data/MSA_M2009_dl_1.xls") %>%
-  bind_rows(read_and_prep("bls_data/MSA_M2009_dl_2.xls")) %>%
-  bind_rows(read_and_prep("bls_data/MSA_M2009_dl_3.xls")) %>%
-  mutate(year = 2009)
-
-df08 <- read_and_prep("bls_data/MSA_M2008_dl_1.xls") %>%
-  bind_rows(read_and_prep("bls_data/MSA_M2008_dl_2.xls")) %>%
-  bind_rows(read_and_prep("bls_data/MSA_M2008_dl_3.xls")) %>%
-  mutate(year = 2008)
-
-df07 <- read_and_prep("bls_data/MSA_May2007_dl_1.xls") %>%
-  bind_rows(read_and_prep("bls_data/MSA_May2007_dl_2.xls")) %>%
-  bind_rows(read_and_prep("bls_data/MSA_May2007_dl_3.xls")) %>%
-  mutate(year = 2007)
-
-df06 <- read_and_prep("bls_data/MSA_may2006_dl_1.xls") %>%
-  bind_rows(read_and_prep("bls_data/MSA_may2006_dl_2.xls")) %>%
-  bind_rows(read_and_prep("bls_data/MSA_may2006_dl_3.xls")) %>%
-  mutate(year = 2006)
-
-df05 <- read_and_prep("bls_data/MSA_may2005_dl_1.xls") %>%
-  bind_rows(read_and_prep("bls_data/MSA_may2005_dl_2.xls")) %>%
-  bind_rows(read_and_prep("bls_data/MSA_may2005_dl_3.xls")) %>%
-  mutate(year = 2005)
-
-#MSA codes all change in 2004
-
-df_t <- bind_rows(df19, df18, df17, df16, df15, df14, df13, df12, df11, df10, df09, df08, df07, df06, df05)
-```
-
-
-```{r}
-#inflate to 2019 dollars based on CPI
-df_cpi <- tibble(
-  year = 2005:2019,
-  cpi_value = c(195.292, 201.592, 207.342, 215.303, 214.537, 218.056, 224.939, 229.594, 232.957,
-                236.736, 237.017, 240.007, 245.120,
-                251.107, 255.657)
-) %>%
-  mutate(multiplier = max(cpi_value)/ cpi_value) #scale to 2019 dollars
-
-df_t <- left_join(df_t, df_cpi, by = "year")
-
-df_t <- df_t %>%
-  mutate(h_median = h_median * multiplier)
-```
-
-
-```{r}
-trend_cc(df_t, 
-         "h_median", 
-         plot_title = "Median Hourly Wages for Childcare Workers",
-         y_title = "Dollars")
-```
-
-## Head Start
-
-Have data from KYSTATS, pending analysis.
-
-# Child Health
-
-## Adverse Childhood Experiences
-
-Child data incoming from Sarojini. ETA Friday 2/12.
-Adult factors have been mapped to data sources.
-
-## Child Food Security
-
-Data incoming from Feeding America
-
-```{r}
-# Read in food insecurity data from Mind the Meal Gap
-dinner_time <- function(folder, starting_year){
-  
-  wd <- getwd()
-  directory <- paste0(wd, "/", folder)
-  file_names <- list.files(directory)
-  
-  # Read file for each year
-  for (y in starting_year:2018){
-    
-    # Create parameters to read in sheet based on the year
-    file_path <- paste0(wd, "/", folder, "/", file_names[y-2008])
-    
-    sheet_name <- case_when(
-      y %in% 2009:2010 ~ "County",
-      y %in% 2011:2018 ~ paste0(y, " County"))
-    
-    skip_num <- case_when(
-      y %in% 2009:2017 ~ 0,
-      y %in% 2018 ~ 1)
-    
-    df <- readxl::read_xlsx(file_path, sheet = sheet_name, skip = skip_num)
-
-    # Create variables names based on the year
-    food_insecure_var <- paste0(y, " Food Insecurity Rate")
-    food_insecure_num_var <- paste0("# of Food Insecure Persons in ", y)
-    child_food_insecure_var <- paste0(y, " Child food insecurity rate")
-    child_food_insecure_num_var <- paste0("# of Food Insecure Children in ", y)
-    insecure_FRL <- paste0("% food insecure children in HH w/ HH incomes below 185 FPL in ", y)
-    insecure_non_FRL <- paste0("% food insecure children in HH w/ HH incomes above 185 FPL in ", y)
-
-    # Tidy data frame
-    df %<>%
-      transmute(
-        FIPS = str_pad(FIPS, 5, "left", "0"),
-        year = y,
-        food_insecurity = .data[[food_insecure_var]],
-        food_insecurity_num = .data[[food_insecure_num_var]],
-        child_food_insecurity = .data[[child_food_insecure_var]],
-        child_food_insecurity_num = .data[[child_food_insecure_num_var]],
-        
-        low_threshold = `Low Threshold in state`,
-        low_threshold_type = `Low Threshold Type`,
-        high_threshold = `High Threshold in state`,
-        high_threshold_type = `High Threshold Type`,
-        under_low = `% FI ≤ Low Threshold`,
-        between = `% FI Btwn Thresholds`,
-        above = `% FI > High Threshold`,
-        child_below_FRL = .data[[insecure_FRL]],
-        child_above_FRL = .data[[insecure_non_FRL]])
-
-    output <- assign_row_join(output, df)
-  }
-  output
-}
-
-feeding_america <- dinner_time("raw_data/Map the Meal Gap data", starting_year = 2012)
-feeding_america_covid <- readxl::read_xlsx("raw_data/Projections data (revised Oct. 2020)/The Impact of Coronavirus on Food Insecurity Update 10.2020.xlsx", sheet = "County")
-
-feeding_america_covid %<>%
-  transmute(
-    FIPS = str_pad(FIPS, 5, "left", "0"),
-    year = 2020,
-    food_insecurity = `[Revised Projections – Oct 2020] \r\n2020 Food Insecurity  %`,
-    food_insecurity_num = `[Revised Projections – Oct 2020] \r\n2020 Food Insecurity #`,
-    child_food_insecurity = `[Revised Projections – Oct 2020] \r\n2020 Child Food Insecurity  %`,
-    child_food_insecurity_num = `[Revised Projections – Oct 2020] \r\n2020 Child Food Insecurity #`)
-
-feeding_america %<>%
-  bind_rows(feeding_america_covid)
-
-feeding_america %<>% 
-  pull_peers() %>%
-  mutate(across(
-    c(food_insecurity, child_food_insecurity, under_low, between, above, child_below_FRL, child_above_FRL), 
-    ~ . * 100))
-
-feeding_america_1 <- feeding_america %>%
-  stl_merge(food_insecurity_num, child_food_insecurity_num, method = "sum")
-
-feeding_america_2 <- feeding_america %>%
-  stl_merge(food_insecurity, under_low, between, above, method = "mean", weight_var = "food_insecurity_num")
-
-feeding_america_3 <- feeding_america %>%
-  stl_merge(child_food_insecurity, child_below_FRL, child_above_FRL, method = "mean", weight_var = "child_food_insecurity_num")
-
-feeding_america_t = left_join(feeding_america_1, feeding_america_2) %>%
-  left_join(feeding_america_3)
-
-ranking(feeding_america_t, 
-        "child_food_insecurity",
-        year = 2020,
-        order = "Ascending",
-        text_size = 1)
-
-ranking(feeding_america_t, 
-        "child_above_FRL",
-        year = 2018,
-        order = "Ascending",
-        text_size = 1)
-
-trend_cc(feeding_america_t,
-         "child_food_insecurity", 
-         plot_title = "Child Food Insecurity",
-         y_title = "Percent",
-         xmin = 2014, xmax = 2020)
-```
-
-
 # Kindergarten Readiness 
 
 Kindergarten readiness is an important indicator of whether children will succeed in the classroom. While the measure has limitations, it is a strong indicator of future student performance. 
 
-Based on data from KySTATS in 2015, students who entered school ready for kindergarten were more likely to 
+Based on data from KySTATS, JCPS students who entered school ready for kindergarten in 2016 were over three times as likely to achieve test results at or above their grade level on their standardized K-PREP math and reading tests in the 3rd grade. This is true for both JCPS students as a whole as well as Black JCPS students in particular.
 
 ## by Student Zip Code
 
@@ -430,6 +54,40 @@ This data was aquired through a data request to JCPS. Note that this data only i
 
 The data shows wide disparities in the kindergarten readiness results 
 ```{r kindergarten_readiness_data}
+# Kready math
+
+# ready w/ enrichments * (% distinguished + % proficient)
+ready_prof_dist_math = (643 * (.317 + .353) + 2956 * (.122 + .355)) / 
+                    (643 * (1 - .143) + 2956 * (1 - .111)) * 100
+not_ready_prof_dist_math = 3886 * (.034 + .160) / 3886 * (1 - .111) * 100
+
+mult_math = ready_prof_dist_math / not_ready_prof_dist_math
+
+# Kready reading
+ready_prof_dist_reading = (643 * (.463 + .235) + 2956 * (.219 + .309)) / 
+                    (643 * (1 - .143) + 2956 * (1 - .111)) * 100
+not_ready_prof_dist_reading = 3886 * (.057 + .165) / 3886 * (1 - .111) * 100
+
+mult_reading = ready_prof_dist_reading / not_ready_prof_dist_reading
+
+# black children
+# ready w/ enrichments * (% distinguished + % proficient)
+ready_prof_dist_math = (149 * (.148 + .376) + 940 * (.044 + .234)) / 
+                    (149 * (1 - .067) + 940 * (1 - .089)) * 100
+not_ready_prof_dist_math = 1443 * (.013 + .089) / 1443 * (1 - .090) * 100
+
+mult_math_black = ready_prof_dist_math / not_ready_prof_dist_math
+
+# Kready reading
+ready_prof_dist_reading = (149 * (.275 + .248) + 940 * (.091 + .240)) / 
+                    (149 * (1 - .067) + 940 * (1 - .089)) * 100
+not_ready_prof_dist_reading = 1443 * (.019 + .106) / 1443 * (1 - .090) * 100
+
+mult_reading_black = ready_prof_dist_reading / not_ready_prof_dist_reading
+
+race_math = mult_math_black / mult_math
+race_reading = mult_reading_black / mult_reading
+
 
 # Ready in kready data
 kready_zip <- readxl::read_excel("raw_data/Copy of 1920_Brigance Zip Code_Prior Settings TablesForORR.xlsx",
@@ -640,3 +298,511 @@ plot_ly(kready_race_plotly) %>%
                    label = unique(kready_race_plotly$prior_setting)[6])))))
 
 ```
+
+# Early Care and Pre-K
+
+## Cost and Availability of Childcare
+
+Median monthly cost of childcare providers in Louisville is $650. Pending verification of KYNECT data
+
+```{r childcare_provider_data}
+# Creates four data frames linked by license number (CLR)
+
+# provider_information: original file from the state.
+#    includes provider name, address, and several other fields.
+
+# provider_hours: includes open days and hours
+
+# provider_cost: includes program offerings and cost
+
+# provider_other: includes other available info. 
+#    Might just duplicate fields from program_information, though.
+
+# Read in provider information (county, name, address, etc.)
+provider_information <- readxl::read_xlsx("raw_data/Chilcare Provider Download.xlsx",
+                                          skip = 2)
+
+# Subset to Jefferson County and rename license column for ease of use
+provider_information %<>% 
+  filter(County == "JEFFERSON") %>%
+  rename(CLR = `CLR#`)
+    
+# Read in provider data collected from KYnect 
+provider_data <- read_csv("raw_data/Childcare Provider Cost Data.csv",
+                          col_names = c("CLR", "Day", "Time", "Services", "FullTime", "PartTime", "Other"))
+
+# Check that no data is missing a license number - PASSED
+# missing_CLR <- provider_data %>%
+#   filter(is.na(CLR)) %>%
+#   filter(!is.na(Day) | !is.na(Time) | !is.na(Services) |
+#            !is.na(FullTime) | !is.na(PartTime) | !is.na(Other))
+# 
+# # Check that the list of license numbers are identical - PASSED
+# check_data1 <- mean(provider_information$CLR %in% provider_data$CLR) + 
+#                mean(provider_data$CLR %in% provider_information$CLR)
+
+# Check values and number of each variable
+# table(provider_data$Day) # good, 1 provider removed from listing
+# table(provider_data$Time) # good
+# table(provider_data$Services) # good
+# table(provider_data$FullTime) # good
+# table(test$PartTime) # often contains data for "Other"
+# table(provider_data$Other) # good
+# table(str_remove(provider_data$Other, "\\d*")) # good
+
+# Filter out rows without license numbers (used to make data entry easier)
+# Remove C6739, which closed between the creation of the provider registry and data collection 
+provider_data %<>%
+  filter(!is.na(CLR), 
+         CLR != "C6739")
+
+# The data for the "Other" column is often located in the PartTime column.
+# Group by license and determine whether the number of children is in the PartTime column. (should be in Other)
+# If so, move the data from the PartTime column to the Other column for that provider.
+provider_data %<>%
+  group_by(CLR) %>%
+  mutate(move_PartTime = if_else(any(str_detect(PartTime, "Children")), T, F),
+         move_PartTime = if_else(is.na(move_PartTime), F, move_PartTime)) %>%
+  mutate(Other = if_else(move_PartTime, PartTime, Other),
+         PartTime = if_else(move_PartTime, NA_character_, PartTime)) %>%
+  ungroup() %>%
+  select(-move_PartTime)
+
+# Hours data
+# Clean by filtering data to days of the week
+provider_hours <- provider_data %>%
+  select(CLR, Day, Time) %>%
+  filter(Day %in% c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+
+# Cost data
+# Multiple offerings for each age-group are labeled with numbers (e.g. Toddler 1, Toddler 2). Remove.
+# Clean by filtering data to type of service (infant, toddler, preschool, school age)
+# Keep distinct (Removes multiple oferrings for the same age group with same prices)
+provider_cost <- provider_data %>%
+  select(CLR, Services, FullTime, PartTime) %>%
+  mutate(Services = str_remove(Services, " \\d")) %>%
+  filter(Services %in% c("Infant", "Toddler", "Preschool", "School Age")) %>%
+  distinct()
+
+# View number of different-cost options within each age group
+# provider_cost %>% group_by(CLR, Services) %>% summarise(n = n()) %>% pull(n) %>% table()
+
+# Other data
+provider_other <- provider_data %>%
+  select(CLR, Other)
+
+# Column contains data labels/headers followed by data
+# Copy the data to a new column and shift it up one row to create key-value pairs 
+provider_other$header <- provider_other$Other
+provider_other$data <- c(provider_other$Other[2:nrow(provider_other)], NA_character_)
+
+# Filter the data to rows where the header is in the header column. (Remove value-key pairs.)
+# Spread the data across columns
+provider_other %<>%
+  select(-Other) %>%
+  filter(header %in% c("Capacity", "CCCAP Subsidy", "Acceditations", "Food Permit", "Transportation")) %>%
+  pivot_wider(names_from = header, values_from = data) %>%
+  mutate(
+    Capacity = str_remove(Capacity, " Children") %>% as.numeric)
+
+```
+
+## Childcare Workers compensation
+
+```{r}
+read_and_prep <- function(file_path) {
+  df <- readxl::read_excel(file_path) %>%
+    janitor::clean_names() %>%
+  mutate(MSA = as.numeric(area),
+         h_median = as.numeric(h_median)) %>%
+  filter(MSA %in% c(24340, 41180, 36420, 46140, 24860, 28940, 13820, 31140, 26900, 
+                        28140, 36540, 24660, 16740, 18140, 17140, 34980, 32820) & 
+           occ_title %in% c("Childcare Workers", "Child care workers")) %>%
+  select(MSA, tot_emp, h_mean, a_mean, h_median, a_median) %>%
+  mutate(city = case_when(
+    MSA == 24340 ~ "Grand Rapids",
+    MSA == 41180 ~ "St. Louis",
+    MSA == 36420 ~ "Oklahoma City",
+    MSA == 46140 ~ "Tulsa",
+    MSA == 24860 ~ "Greenville",
+    MSA == 28940 ~ "Knoxville",
+    MSA == 13820 ~ "Birmingham",
+    MSA == 31140 ~ "Louisville",
+    MSA == 26900 ~ "Indianapolis",
+    MSA == 28140 ~ "Kansas City",
+    MSA == 36540 ~ "Omaha",
+    MSA == 24660 ~ "Greensboro",
+    MSA == 16740 ~ "Charlotte",
+    MSA == 18140 ~ "Columbus",
+    MSA == 17140 ~ "Cincinnati",
+    MSA == 34980 ~ "Nashville",
+    MSA == 32820 ~ "Memphis",
+    TRUE ~ NA_character_
+  ))
+    
+return(df)
+  
+}
+
+df19 <- read_and_prep("bls_data/MSA_M2019_dl.xlsx") %>%
+  mutate(year = 2019)
+
+ranking(df19,
+        "h_median", 
+        text_size = 2, 
+        plot_title = "Median Wages for Childcare Workers, 2019", 
+        year = 2019,
+        subtitle_text = "2019", #font didn't really work here. Could play with text size more?
+        y_title = "Dollars",
+        FIPS_df = FIPS_df)
+```
+
+```{r}
+df18 <- read_and_prep("bls_data/MSA_M2018_dl.xlsx") %>%
+  mutate(year = 2018)
+
+df17 <- read_and_prep("bls_data/MSA_M2017_dl.xlsx") %>%
+  mutate(year = 2017)
+
+df16 <- read_and_prep("bls_data/MSA_M2016_dl.xlsx") %>%
+  mutate(year = 2016)
+
+df15 <- read_and_prep("bls_data/MSA_M2015_dl.xlsx") %>%
+  mutate(year = 2015)
+
+df14 <- read_and_prep("bls_data/MSA_M2014_dl.xlsx") %>%
+  mutate(year = 2014)
+
+df13 <- read_and_prep("bls_data/MSA_M2013_dl_1_AK_IN.xls") %>%
+  bind_rows(read_and_prep("bls_data/MSA_M2013_dl_2_KS_NY.xls")) %>%
+  bind_rows(read_and_prep("bls_data/MSA_M2013_dl_3_OH_WY.xls")) %>%
+  mutate(year = 2013)
+
+df12 <- read_and_prep("bls_data/MSA_M2012_dl_1_AK_IN.xls") %>%
+  bind_rows(read_and_prep("bls_data/MSA_M2012_dl_2_KS_NY.xls")) %>%
+  bind_rows(read_and_prep("bls_data/MSA_M2012_dl_3_OH_WY.xls")) %>%
+  mutate(year = 2012)
+
+df11 <- read_and_prep("bls_data/MSA_M2011_dl_1_AK_IN.xls") %>%
+  bind_rows(read_and_prep("bls_data/MSA_M2011_dl_2_KS_NY.xls")) %>%
+  bind_rows(read_and_prep("bls_data/MSA_M2011_dl_3_OH_WY.xls")) %>%
+  mutate(year = 2011)
+
+df10 <- read_and_prep("bls_data/MSA_M2010_dl_1.xls") %>%
+  bind_rows(read_and_prep("bls_data/MSA_M2010_dl_2.xls")) %>%
+  bind_rows(read_and_prep("bls_data/MSA_M2010_dl_3.xls")) %>%
+  mutate(year = 2010)
+
+
+
+
+df09 <- read_and_prep("bls_data/MSA_M2009_dl_1.xls") %>%
+  bind_rows(read_and_prep("bls_data/MSA_M2009_dl_2.xls")) %>%
+  bind_rows(read_and_prep("bls_data/MSA_M2009_dl_3.xls")) %>%
+  mutate(year = 2009)
+
+df08 <- read_and_prep("bls_data/MSA_M2008_dl_1.xls") %>%
+  bind_rows(read_and_prep("bls_data/MSA_M2008_dl_2.xls")) %>%
+  bind_rows(read_and_prep("bls_data/MSA_M2008_dl_3.xls")) %>%
+  mutate(year = 2008)
+
+df07 <- read_and_prep("bls_data/MSA_May2007_dl_1.xls") %>%
+  bind_rows(read_and_prep("bls_data/MSA_May2007_dl_2.xls")) %>%
+  bind_rows(read_and_prep("bls_data/MSA_May2007_dl_3.xls")) %>%
+  mutate(year = 2007)
+
+df06 <- read_and_prep("bls_data/MSA_may2006_dl_1.xls") %>%
+  bind_rows(read_and_prep("bls_data/MSA_may2006_dl_2.xls")) %>%
+  bind_rows(read_and_prep("bls_data/MSA_may2006_dl_3.xls")) %>%
+  mutate(year = 2006)
+
+df05 <- read_and_prep("bls_data/MSA_may2005_dl_1.xls") %>%
+  bind_rows(read_and_prep("bls_data/MSA_may2005_dl_2.xls")) %>%
+  bind_rows(read_and_prep("bls_data/MSA_may2005_dl_3.xls")) %>%
+  mutate(year = 2005)
+
+#MSA codes all change in 2004
+
+df_t <- bind_rows(df19, df18, df17, df16, df15, df14, df13, df12, df11, df10, df09, df08, df07, df06, df05)
+```
+
+
+```{r}
+#inflate to 2019 dollars based on CPI
+df_cpi <- tibble(
+  year = 2005:2019,
+  cpi_value = c(195.292, 201.592, 207.342, 215.303, 214.537, 218.056, 224.939, 229.594, 232.957,
+                236.736, 237.017, 240.007, 245.120,
+                251.107, 255.657)
+) %>%
+  mutate(multiplier = max(cpi_value)/ cpi_value) #scale to 2019 dollars
+
+df_t <- left_join(df_t, df_cpi, by = "year")
+
+df_t <- df_t %>%
+  mutate(h_median = h_median * multiplier)
+```
+
+
+```{r}
+trend_cc(df_t, 
+         "h_median", 
+         plot_title = "Median Hourly Wages for Childcare Workers",
+         y_title = "Dollars")
+```
+
+# Child Health
+
+## Adverse Childhood Experiences
+
+Adverse childhood experiences are potentially traumatic events that occur in childhood. If you would prefer to skip past this section, you can do so by clicking "Child Food Security" in the sidebar.
+
+Adverse Childhood Experiences (ACEs) include forms of abuse, neglect, and household dysfunction. Per the CDC, "ACEs can have lasting, negative effects on health, well-being, and opportunity. These experiences can increase the risks of injury, sexually transmitted infections, maternal and child health problems, teen pregnancy, involvement in sex trafficking, and a wide range of chronic diseases and leading causes of death such as cancer, diabetes, heart disease, and suicide."
+
+Data is from the Kentucky BRFSS survey. We are currently following up to determine the validity of the data broken down by race.
+
+```{r}
+ace_types <- tibble(
+  category = c(rep("abuse", 3), rep("dysfunction", 6)),
+  type = c("physical_abuse", "sexual_abuse", "verbal_abuse",
+           "incarcerated_hh_member", "drug_problem", "drinking_problem",
+           "witness_domestic_violence", "mentally_ill_hh_member", "divorced_parents"),
+  percent = c(12.5, 15.4, 28.2, 9.7, 16.9, 31.6, 20.5, 26.1, 41.8))
+
+ace_types %<>%
+  mutate(type = factor(type, 
+                       levels = c("incarcerated_hh_member", 
+                                  "drug_problem",
+                                  "drinking_problem",
+                                  "witness_domestic_violence", 
+                                  "mentally_ill_hh_member", 
+                                  "divorced_parents",
+                                  "physical_abuse", 
+                                  "sexual_abuse", 
+                                  "verbal_abuse"),
+                       labels = c("Incarcerated household member", 
+                                  "Drug problem in household",
+                                  "Drinking problem in household",
+                                  "Witnessed domestic violence", 
+                                  "Mentally ill household member", 
+                                  "Divorced Parents",
+                                  "Physical abuse", 
+                                  "Sexual abuse", 
+                                  "Verbal abuse"),
+                       ordered = TRUE))
+
+text_size = 2
+
+p <- ggplot(ace_types, aes(type, percent))
+
+p = p + guides(fill = FALSE, color = FALSE)
+
+p <- p +
+  geom_bar(stat = "identity",
+           size = text_size) +
+  coord_flip() +
+  ggthemes::theme_tufte()
+
+p <- p + theme(text = element_text(family = "Montserrat"),
+               plot.title = element_text(size = 14 * text_size, hjust = 0.5, margin = margin(b = 10, unit = "pt")),
+               axis.text.y = element_text(hjust = 0,
+                                          size = 10 * text_size),
+               axis.title.x = element_text(size = 10 * text_size),
+               axis.title.y = element_text(size = 10 * text_size),
+               axis.ticks = element_blank(),
+               axis.text.x = element_text(hjust = 0,
+                                          size = 10 * text_size),
+               plot.caption = element_text(size = 5 * text_size, lineheight = 0.5))
+
+# p <- p +
+#   labs(subtitle = subtitle_text) +
+#   theme(plot.subtitle = element_text(hjust = 0.5, size = 10 * text_size))
+
+# Add remaining text
+p <- p + labs(title = "Prevelance of ACEs among Louisville adults",
+              y = "Percent",
+              x = "",
+              caption = "")
+
+p <- p +
+  theme(
+    panel.background = element_rect(fill = "transparent", color = NA), # bg of the panel
+    plot.background = element_rect(fill = "transparent", color = NA), # bg of the plot
+    legend.background = element_rect(fill = "transparent", color = "transparent"), # get rid of legend bg
+    legend.box.background = element_rect(fill = "transparent", color = "transparent"), # get rid of legend panel bg
+    legend.key = element_rect(fill = "transparent",colour = NA))
+
+p
+
+```
+
+```{r}
+ace_prevelance <- tibble(
+  number = c(0:4, "5+"),
+  percent = c(29, 20.8, 17.8, 10, 10, 12.4))
+
+text_size = 2
+
+p <- ggplot(ace_prevelance, aes(number, percent))
+
+p = p + guides(fill = FALSE, color = FALSE)
+
+p <- p +
+  geom_bar(stat = "identity",
+           size = text_size) +
+  #coord_flip() +
+  ggthemes::theme_tufte()
+
+p <- p + theme(text = element_text(family = "Montserrat"),
+               plot.title = element_text(size = 14 * text_size, hjust = 0.5, margin = margin(b = 10, unit = "pt")),
+               axis.text.y = element_text(hjust = 0,
+                                          size = 10 * text_size),
+               axis.title.x = element_text(size = 10 * text_size),
+               axis.ticks = element_blank(),
+               axis.text.x = element_text(hjust = 0,
+                                          size = 10 * text_size),
+               plot.caption = element_text(size = 5 * text_size, lineheight = 0.5))
+
+# p <- p +
+#   labs(subtitle = subtitle_text) +
+#   theme(plot.subtitle = element_text(hjust = 0.5, size = 10 * text_size))
+
+# Add remaining text
+p <- p + labs(title = "Percentage of Louisville adults by ACE score",
+              y = "Percent",
+              x = "Number of Adverse Childhood Experiences",
+              caption = "")
+
+p <- p +
+  theme(
+    panel.background = element_rect(fill = "transparent", color = NA), # bg of the panel
+    plot.background = element_rect(fill = "transparent", color = NA), # bg of the plot
+    legend.background = element_rect(fill = "transparent", color = "transparent"), # get rid of legend bg
+    legend.box.background = element_rect(fill = "transparent", color = "transparent"), # get rid of legend panel bg
+    legend.key = element_rect(fill = "transparent",colour = NA))
+
+p
+
+```
+
+
+## Child Food Security {.tabset}
+
+### Trend
+
+During the COVID-19 pandemic, child food insecurity is estimated to have increased by 40% in Louisville compared to 2018.
+
+```{r}
+# Read in food insecurity data from Mind the Meal Gap
+dinner_time <- function(folder, starting_year){
+  
+  wd <- getwd()
+  directory <- paste0(wd, "/", folder)
+  file_names <- list.files(directory)
+  
+  # Read file for each year
+  for (y in starting_year:2018){
+    
+    # Create parameters to read in sheet based on the year
+    file_path <- paste0(wd, "/", folder, "/", file_names[y-2008])
+    
+    sheet_name <- case_when(
+      y %in% 2009:2010 ~ "County",
+      y %in% 2011:2018 ~ paste0(y, " County"))
+    
+    skip_num <- case_when(
+      y %in% 2009:2017 ~ 0,
+      y %in% 2018 ~ 1)
+    
+    df <- readxl::read_xlsx(file_path, sheet = sheet_name, skip = skip_num)
+
+    # Create variables names based on the year
+    food_insecure_var <- paste0(y, " Food Insecurity Rate")
+    food_insecure_num_var <- paste0("# of Food Insecure Persons in ", y)
+    child_food_insecure_var <- paste0(y, " Child food insecurity rate")
+    child_food_insecure_num_var <- paste0("# of Food Insecure Children in ", y)
+    insecure_FRL <- paste0("% food insecure children in HH w/ HH incomes below 185 FPL in ", y)
+    insecure_non_FRL <- paste0("% food insecure children in HH w/ HH incomes above 185 FPL in ", y)
+
+    # Tidy data frame
+    df %<>%
+      transmute(
+        FIPS = str_pad(FIPS, 5, "left", "0"),
+        year = y,
+        food_insecurity = .data[[food_insecure_var]],
+        food_insecurity_num = .data[[food_insecure_num_var]],
+        child_food_insecurity = .data[[child_food_insecure_var]],
+        child_food_insecurity_num = .data[[child_food_insecure_num_var]],
+        
+        low_threshold = `Low Threshold in state`,
+        low_threshold_type = `Low Threshold Type`,
+        high_threshold = `High Threshold in state`,
+        high_threshold_type = `High Threshold Type`,
+        under_low = `% FI ≤ Low Threshold`,
+        between = `% FI Btwn Thresholds`,
+        above = `% FI > High Threshold`,
+        child_below_FRL = .data[[insecure_FRL]],
+        child_above_FRL = .data[[insecure_non_FRL]])
+
+    output <- assign_row_join(output, df)
+  }
+  output
+}
+
+feeding_america <- dinner_time("raw_data/Map the Meal Gap data", starting_year = 2012)
+feeding_america_covid <- readxl::read_xlsx("raw_data/Projections data (revised Oct. 2020)/The Impact of Coronavirus on Food Insecurity Update 10.2020.xlsx", sheet = "County")
+
+feeding_america_covid %<>%
+  transmute(
+    FIPS = str_pad(FIPS, 5, "left", "0"),
+    year = 2020,
+    food_insecurity = `[Revised Projections – Oct 2020] \r\n2020 Food Insecurity  %`,
+    food_insecurity_num = `[Revised Projections – Oct 2020] \r\n2020 Food Insecurity #`,
+    child_food_insecurity = `[Revised Projections – Oct 2020] \r\n2020 Child Food Insecurity  %`,
+    child_food_insecurity_num = `[Revised Projections – Oct 2020] \r\n2020 Child Food Insecurity #`)
+
+feeding_america %<>%
+  bind_rows(feeding_america_covid)
+
+feeding_america %<>% 
+  pull_peers(FIPS_df = FIPS_df) %>%
+  mutate(across(
+    c(food_insecurity, child_food_insecurity, under_low, between, above, child_below_FRL, child_above_FRL), 
+    ~ . * 100))
+
+feeding_america_1 <- feeding_america %>%
+  stl_merge(food_insecurity_num, child_food_insecurity_num, method = "sum")
+
+feeding_america_2 <- feeding_america %>%
+  stl_merge(food_insecurity, under_low, between, above, method = "mean", weight_var = "food_insecurity_num")
+
+feeding_america_3 <- feeding_america %>%
+  stl_merge(child_food_insecurity, child_below_FRL, child_above_FRL, method = "mean", weight_var = "child_food_insecurity_num")
+
+feeding_america_t = left_join(feeding_america_1, feeding_america_2) %>%
+  left_join(feeding_america_3)
+
+feeding_america_t %<>%
+  mutate(pct_above_frl = child_above_FRL * child_food_insecurity / 100,
+         pct_below_frl = (100 - child_above_FRL) * child_food_insecurity / 100)
+
+trend_cc(feeding_america_t,
+         "child_food_insecurity", 
+         plot_title = "Child Food Insecurity",
+         y_title = "Percent",
+         xmin = 2014, xmax = 2020)
+```
+
+### Ranking
+
+While Louisville is toward the middle of its peer cities, between 1 in 5 and 1 in 4 children is food insecure.
+```{r}
+ranking(feeding_america_t, 
+        "child_food_insecurity",
+        plot_title = "Child Food Insecurity, October 2020",
+        year = 2020,
+        order = "Ascending",
+        text_size = 2,
+        FIPS_df = FIPS_df)
+```
+
