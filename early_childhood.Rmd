@@ -380,7 +380,10 @@ provider_hours <- provider_data %>%
 # Keep distinct (Removes multiple oferrings for the same age group with same prices)
 provider_cost <- provider_data %>%
   select(CLR, Services, FullTime, PartTime) %>%
-  mutate(Services = str_remove(Services, " \\d")) %>%
+  mutate(
+    Services = str_remove(Services, " \\d"),
+    FullTime = as.numeric(FullTime),
+    PartTime = as.numeric(PartTime)) %>%
   filter(Services %in% c("Infant", "Toddler", "Preschool", "School Age")) %>%
   distinct()
 
@@ -407,6 +410,31 @@ provider_other %<>%
 
 ```
 
+
+```{r}
+provider_cd <- provider_cost %>%
+  group_by(Services) %>%
+  summarize(mean = mean(FullTime, na.rm = TRUE),
+            median = median(FullTime, na.rm = TRUE),
+            sd = sd(FullTime, na.rm = TRUE),
+            min = min(FullTime, na.rm = TRUE),
+            max = max(FullTime, na.rm = TRUE))
+
+provider_cd2 <- provider_cost %>%
+  left_join(provider_other, by = "CLR") %>%
+  group_by(Services, str_) %>%
+  filter(!is.na(Capacity)) %>%
+  summarize(
+    mean = weighted.mean(FullTime, Capacity, na.rm = TRUE),
+    median = unname(Hmisc::wtd.quantile(FullTime, Capacity, probs = 0.5, na.rm = TRUE)),
+    sd = sqrt(Hmisc::wtd.var(FullTime, Capacity, na.rm = TRUE)),
+    min = min(FullTime, na.rm = TRUE),
+    max = max(FullTime, na.rm = TRUE))
+
+# Some care centers seem to have reported weekly rates. That throws the mean and sd off, but shouldn't really impact the medians. Median cost is $30 per day for infants and toddlers, down to $25 per day for school age children.
+
+# 150 a week or 7800 a year, or an average of $650 a month. 
+```
 ## Childcare Workers compensation
 
 ```{r}
