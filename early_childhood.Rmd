@@ -315,17 +315,58 @@ Median monthly cost of childcare providers in Louisville is $650. Pending verifi
 
 # provider_cost: includes program offerings and cost
 
+# provider_service_offerings: includes which age ranges are available
+
 # provider_other: includes other available info. 
 #    Might just duplicate fields from program_information, though.
+
+# Infant: <12 months
+# Toddler: between 12 and 24 months
+# School-age: child enrolled in kindergarten, elementary, or secondary education
 
 # Read in provider information (county, name, address, etc.)
 provider_information <- readxl::read_xlsx("raw_data/Chilcare Provider Download.xlsx",
                                           skip = 2)
 
 # Subset to Jefferson County and rename license column for ease of use
+
 provider_information %<>% 
   filter(County == "JEFFERSON") %>%
-  rename(CLR = `CLR#`)
+  rename(CLR = `CLR#`) %>%
+  filter(CLR != "C6739") %>%
+  transmute(
+    CLR,
+    Name,
+    Location = `Location Address`,
+    Capacity,
+    Transportation = if_else(`Transportation Service` == "Y", T, F),
+    STARS = as.numeric(`Stars Rating`),
+    Type = `Provider Type`,
+    active_CCAP = if_else(`Active CCAP Children` == "Y", T, F),
+    special_needs = case_when(
+      `Serves Children with Special Needs` == "Y" ~ T,
+      `Serves Children with Special Needs` == "N" ~ F,
+      TRUE ~ NA),
+    
+    og_range = `Age Range Of Service`,
+    
+    offerring = recode(`Age Range Of Service`,
+                      "Infant" = 1,
+                      "Infant To School Age" = 2,
+                      "Infant To Two_To_School" = 3,
+                      "Toddler To Two_To_School" = 4,
+                      "Toddler To School_Age" = 5,
+                      "Two_To_School" = 6,
+                      "Two_To_School To School_Age" = 7,
+                      "School_Age" = 8,
+                      "No Information Available" = 9),
+    
+    Infant    = if_else(offerring %in% 1:3, T, F),
+    Toddler   = if_else(offerring %in% 2:5, T, F),
+    Preschool = if_else(offerring %in% 2:7, T, F),
+    School    = if_else(offerring %in% c(2, 5, 7, 8), T, F)) %>%
+  mutate(across(Infant:School, ~ if_else(offerring == 9, NA, .))) %>%
+  select(-offerring)
     
 # Read in provider data collected from KYnect 
 provider_data <- read_csv("raw_data/Childcare Provider Cost Data.csv",
@@ -387,6 +428,19 @@ provider_cost <- provider_data %>%
   filter(Services %in% c("Infant", "Toddler", "Preschool", "School Age")) %>%
   distinct()
 
+provider_service_offerings <- provider_data %>%
+  filter(!is.na(Services)) %>%
+  group_by(CLR) %>%
+  summarise(
+    Infant = if_else(any(str_detect(Services, "Infant")), T, F),
+    Toddler = if_else(any(str_detect(Services, "Toddler")), T, F),
+    Preschool = if_else(any(str_detect(Services, "Preschool")), T, F),
+    School = if_else(any(str_detect(Services, "School Age")), T, F),
+    .groups = "drop") %>%
+  mutate(all_missing = if_else(!Infant & !Toddler & !Preschool & !School, T, F)) %>%
+  mutate(across(Infant:School, ~if_else(all_missing, NA, .))) %>%
+  select(-all_missing)
+
 # View number of different-cost options within each age group
 # provider_cost %>% group_by(CLR, Services) %>% summarise(n = n()) %>% pull(n) %>% table()
 
@@ -405,8 +459,47 @@ provider_other %<>%
   select(-Other) %>%
   filter(header %in% c("Capacity", "CCCAP Subsidy", "Acceditations", "Food Permit", "Transportation")) %>%
   pivot_wider(names_from = header, values_from = data) %>%
-  mutate(
-    Capacity = str_remove(Capacity, " Children") %>% as.numeric)
+  transmute(
+    CLR,
+    Capacity = as.numeric(str_remove(Capacity, " Children")),
+    accepts_CCCAP = case_when(`CCCAP Subsidy` == "Accepted" ~ T,
+                              `CCCAP Subsidy` == "No" ~ F,
+                              TRUE ~ NA),
+    food_permit = case_when(`Food Permit` == "Yes" ~ T,
+                            `Food Permit` == "No" ~ F,
+                            TRUE ~ NA),
+    transportation = if_else(Transportation == "Yes", T, F))
+
+```
+
+
+
+# Combine and clean some data
+```{r}
+# provider_information: original file from the state.
+#    includes provider name, address, and several other fields.
+
+# provider_hours: includes open days and hours
+
+# provider_cost: includes program offerings and cost
+
+# provider_service_offerings: includes which age ranges are available
+
+# provider_other: includes other available info. 
+#    Might just duplicate fields from program_information, though.
+
+provider_service_offerings %<>%
+  rename(Infant_from_cost = Infant,
+         Toddler_from_cost = Toddler,
+         Preschool_from_cost = Preschool,
+         School_from_cost = School)
+
+test <- provider_information %>%
+  left_join(provider_service_offerings, by = "CLR") %>%
+  mutate(check = (Infant == Infant_from_cost &
+                  Toddler == Toddler_from_cost &
+                  Preschool == Preschool_from_cost &
+                  School == School_from_cost))
 
 ```
 
